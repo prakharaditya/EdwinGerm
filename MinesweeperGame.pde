@@ -2,7 +2,7 @@
 * An early test to see how useful this whole thing is.
 * You can drag it around using the middle mouse button
 */
-class MinesweeperGame implements Kid, MouseReactive, KeyReactive {
+class MinesweeperGame implements Kid {
 	RectBody body;
 	Album album;
 	String[] gameState, displayState;
@@ -41,7 +41,7 @@ class MinesweeperGame implements Kid, MouseReactive, KeyReactive {
 	}
 
 	void resetGame() {
-		int randI, tempBombs, thisTileBombs; 
+		int randI, tempBombs, thisTileBombs;
 		boolean north, east, south, west;
 		//initialize
 		for (int i = 0; i < gameState.length; i++) {
@@ -84,7 +84,7 @@ class MinesweeperGame implements Kid, MouseReactive, KeyReactive {
 			if (south && west && gameState[i + gameW - 1] == BOMB) thisTileBombs++;
 			if (south && east && gameState[i + gameW + 1] == BOMB) thisTileBombs++;
 			
-			String tileValue = EMPTY; 
+			String tileValue = EMPTY;
 			if (thisTileBombs == 1) tileValue = ONE;
 			else if (thisTileBombs == 2) tileValue = TWO;
 			else if (thisTileBombs == 3) tileValue = THREE;
@@ -98,8 +98,8 @@ class MinesweeperGame implements Kid, MouseReactive, KeyReactive {
 		}
 	}
 
-	String getName() { 
-		return "Minesweeper"; 
+	String getName() {
+		return "Minesweeper";
 	}
 
 	void drawSelf(PGraphics canvas) {
@@ -177,7 +177,7 @@ class MinesweeperGame implements Kid, MouseReactive, KeyReactive {
 		boolean north, east, south, west;
 		north = east = south = west = false;
 		//check the cardinal directions first so we can know which corners to check afterwards
-		if ((index / gameW) >= 1) {
+		if (index / gameW >= 1) {
 			north = true;
 			if (displayState[index - gameW] == UNTOUCHED) explore(index - gameW);
 		}

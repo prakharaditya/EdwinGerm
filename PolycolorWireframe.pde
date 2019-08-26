@@ -1,8 +1,8 @@
 /** 
 * This lets you make a ~wireframe statue.
 */
-public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
-	ArrayList<Integer> colorPalette;
+public class PolycolorWireframe implements Kid {
+	//ArrayList<Integer> colorPalette;
 	ArrayList<XY> allDots, buildingPolygon;
 	ArrayList<AnimationFrames> allAnimations;
 	ArrayList<Polygon> allPolygons;
@@ -10,12 +10,13 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 	AnimationFrames selectedAnimation;
 	PShape selectedPolygonBorder, mouseoverPolygonBorder;
 	GadgetPanel gPanel;
+	PalettePicker palette;
 	BoundedInt selectedColor, animationFramerate;
 	XY selectedAnchor, symmetryAnchor, originOffset;
 	String openFilepath, currentAnimation;
 	boolean useVertSym, setVertSym, useHorzSym, setHorzSym, modeDefineFace, playAnimation, queueNextAnimation;
 	int delayCounter;
-	final int anchorDiameter = 50, dotDiameter = 6;
+	final int anchorDiameter = 40, dotDiameter = 6;
 	//constants
 	final String SELECTED_DOT = "selected",
 	NEW_DOT = "new dot",
@@ -41,13 +42,8 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 	PolycolorWireframe(String filename, boolean gadgetPanelVisible) { 
 		if (filename != null) filename = EdFiles.DATA_FOLDER + filename;
 		openFilepath = filename;
-		//default palette
-		colorPalette = new ArrayList<Integer>();
-		colorPalette.add(#05162B);
-		colorPalette.add(#134372);
-		colorPalette.add(#3176BC);
-		colorPalette.add(#9AC5EA);
-		colorPalette.add(#DCE6ED);
+		palette = new PalettePicker(new int[] { #05162B, #134372, #3176BC, #9AC5EA, #DCE6ED });
+		palette.isVisible = false;
 		allAnimations = new ArrayList<AnimationFrames>();
 		allAnimations.add(new AnimationFrames("first"));
 		allDots = new ArrayList<XY>();
@@ -58,8 +54,9 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 		selectedAnimation = allAnimations.get(0);
 		selectedPolygon = null;
 		selectedPolygonBorder = mouseoverPolygonBorder = null;
-		selectedColor = new BoundedInt(0, colorPalette.size() - 1);
-		animationFramerate = new BoundedInt(0, 3);
+		selectedColor = new BoundedInt(0, palette.colors.size() - 1);
+		animationFramerate = new BoundedInt(0, 0);
+		//animationFramerate = new BoundedInt(0, 3);
 		animationFramerate.loops = true;
 		symmetryAnchor = new XY(width / 2, height / 2);
 		originOffset = new XY(0, 0);
@@ -80,40 +77,47 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 			}
 		});
 
-		gPanel.addItem("colors", new String[] { GadgetPanel.ARROW_W, GadgetPanel.ARROW_E, GadgetPanel.START_LIGHT, GadgetPanel.PLUS }, new Command() {
-			void execute(String arg) {
-				if (arg == GadgetPanel.ARROW_W) {
-					selectedColor.decrement();
-					gPanel.panelLabel = "selected color: " + selectedColor.value;
-					return;
-				}
-				else if (arg == GadgetPanel.ARROW_E) {
-					selectedColor.increment();
-					gPanel.panelLabel = "selected color: " + selectedColor.value;
-					return;
-				}
-				else if (arg == GadgetPanel.START_LIGHT) {
-					Color picked = JColorChooser.showDialog(null, "Change color", new Color(colorPalette.get(selectedColor.value)));
-					if (picked == null) return;
-					colorPalette.set(selectedColor.value, picked.getRGB());
-					gPanel.panelLabel = "color changed";
-				}
-				else { // if (arg == GadgetPanel.PLUS) {
-					if (colorPalette.size() == 10) {
-						println("can't have more than 10 colors so far...");
-						return;
-					}
-					Color picked = JColorChooser.showDialog(null, "Pick new color", Color.BLACK);
-					if (picked == null) return;
-					colorPalette.add(picked.getRGB());
-					selectedColor.incrementMax();
-					selectedColor.maximize();
-					gPanel.panelLabel = "color added";
-				}
+		// gPanel.addItem("colors", new String[] { GadgetPanel.ARROW_W, GadgetPanel.ARROW_E, GadgetPanel.START_LIGHT, GadgetPanel.PLUS }, new Command() {
+		// 	void execute(String arg) {
+		// 		if (arg == GadgetPanel.ARROW_W) {
+		// 			selectedColor.decrement();
+		// 			gPanel.panelLabel = "selected color: " + selectedColor.value;
+		// 			return;
+		// 		}
+		// 		else if (arg == GadgetPanel.ARROW_E) {
+		// 			selectedColor.increment();
+		// 			gPanel.panelLabel = "selected color: " + selectedColor.value;
+		// 			return;
+		// 		}
+		// 		else if (arg == GadgetPanel.START_LIGHT) {
+		// 			Color picked = JColorChooser.showDialog(null, "Change color", new Color(colorPalette.get(selectedColor.value)));
+		// 			if (picked == null) return;
+		// 			colorPalette.set(selectedColor.value, picked.getRGB());
+		// 			gPanel.panelLabel = "color changed";
+		// 		}
+		// 		else { // if (arg == GadgetPanel.PLUS) {
+		// 			if (colorPalette.size() == 10) {
+		// 				println("can't have more than 10 colors so far...");
+		// 				return;
+		// 			}
+		// 			Color picked = JColorChooser.showDialog(null, "Pick new color", Color.BLACK);
+		// 			if (picked == null) return;
+		// 			colorPalette.add(picked.getRGB());
+		// 			selectedColor.incrementMax();
+		// 			selectedColor.maximize();
+		// 			gPanel.panelLabel = "color added";
+		// 		}
 
-				for (Polygon polygon : allPolygons) {
-					polygon.redrawFace(colorPalette.get(selectedColor.value));
-				}
+		// 		for (Polygon polygon : allPolygons) {
+		// 			polygon.redrawFace(selectedColor.value);
+		// 		}
+		// 	}
+		// });
+
+		gPanel.addItem("colors", GadgetPanel.START_LIGHT, new Command() {
+			void execute(String arg) {
+				palette.isVisible = !palette.isVisible;
+				palette.body.set(mouseX, mouseY);
 			}
 		});
 
@@ -305,8 +309,11 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 
 		//verticies
 		for (XY dot : allDots) {
-			if (buildingPolygon.contains(dot)) canvas.fill(EdColors.UI_EMPHASIS);
-			else canvas.fill(EdColors.UI_NORMAL);
+			if (buildingPolygon.contains(dot) || dot == selectedAnchor) {
+				canvas.fill(EdColors.UI_NORMAL);
+				canvas.ellipse(selectedAnchor.x, selectedAnchor.y, dotDiameter * 2, dotDiameter * 2);
+			}
+			canvas.fill(EdColors.UI_EMPHASIS);
 			canvas.ellipse(dot.x, dot.y, dotDiameter, dotDiameter);
 			//symmetry dots
 			canvas.fill(EdColors.UI_DARK);
@@ -326,10 +333,6 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 			canvas.endShape(CLOSE);
 		}
 
-		//indicator for selected dot
-		canvas.fill(EdColors.UI_EMPHASIS);
-		canvas.ellipse(selectedAnchor.x, selectedAnchor.y, dotDiameter * 2, dotDiameter * 2);
-
 		//indicator for origin
 		// if (edwin.mouseBtnHeld == CENTER) {
 		// 	canvas.fill(EdColors.UI_EMPHASIS);
@@ -348,11 +351,12 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 
 		canvas.popMatrix();
 		gPanel.drawSelf(canvas);
+		palette.drawSelf(canvas);
 	}
 
 	String mouse() {
-		if (gPanel.mouse() != "") {
-			return getName(); //if gPanel.mouse() returns something that means it's reacting and we'll ignore the event here
+		if (gPanel.mouse() != "" || palette.mouse() != "") {
+			return getName(); //if mouse() returns something that means the panel reacting and we'll ignore the event here
 		}
 
 		XY mouseWOffset = new XY(mouseX - originOffset.x, mouseY - originOffset.y);
@@ -463,7 +467,7 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 			gPanel.itemExecute("frame prev|next|new", GadgetPanel.PLUS);
 			return getName();
 		}
-		else if (kc == Keycodes.VK_G) {
+		else if (kc == Keycodes.VK_Z) {
 			defineFace();
 			return getName();
 		}
@@ -473,7 +477,7 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 		}
 		else if (selectedPolygon != null) {
 			int num = kc - 48; //VK_0, VK_1, ...
-			if (num >= 0 && num < colorPalette.size()) {
+			if (num >= 0 && num < palette.colors.size()) {
 				selectedPolygon.redrawFace(num);
 				selectedAnimation.setColor(num);
 			}
@@ -556,12 +560,7 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 		gPanel.getButtons(VERTICAL_SYM).setCheck(1, useVertSym);
 		gPanel.getButtons(HORIZONTAL_SYM).setCheck(1, useHorzSym);
 		originOffset.set(json.getFloat(OFFSET_X), json.getFloat(OFFSET_Y));
-
-		//palette
-		colorPalette.clear();
-		for (int paletteColor : json.getJSONArray(EdFiles.COLOR_PALETTE).getIntArray()) {
-			colorPalette.add(paletteColor);
-		}
+		palette.resetColors(json.getJSONArray(EdFiles.COLOR_PALETTE).getIntArray());
 
 		//create verticies
 		allDots.clear();
@@ -604,7 +603,7 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 		fileLines.add(jsonKV(OFFSET_Y, originOffset.y));
 		fileLines.add(jsonKV(SYMMETRY_X, (useVertSym ? String.valueOf(symmetryAnchor.x) : "null")));
 		fileLines.add(jsonKV(SYMMETRY_Y, (useHorzSym ? String.valueOf(symmetryAnchor.y) : "null")));
-		fileLines.add(jsonKV(EdFiles.COLOR_PALETTE, colorPalette.toString()));
+		fileLines.add(palette.asJsonKV());
 		fileLines.add(jsonKVNoComma(EdFiles.DOTS, "["));
 		int valueCount = -1;
 		String line = "";
@@ -670,8 +669,8 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 		void redrawFace(int paletteColor) {
 			PShape paintedFace = createShape();
 			paintedFace.beginShape();
-			paintedFace.fill(colorPalette.get(paletteColor));
-			paintedFace.stroke(colorPalette.get(0));
+			paintedFace.fill(palette.colors.get(paletteColor));
+			paintedFace.stroke(palette.colors.get(0));
 			paintedFace.strokeWeight(2);
 			for (XY dot : dots) {
 				paintedFace.vertex(dot.x, dot.y);
@@ -738,6 +737,7 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 		}
 
 		void drawFrame() {
+			if (polygonColors.length == 0) return;
 			String[] colors = polygonColors[currentFrame.value].split("");
 			for (int i = 0; i < allPolygons.size(); i++) {
 				allPolygons.get(i).redrawFace(Integer.valueOf(colors[i]));
@@ -752,12 +752,3 @@ public class PolycolorWireframe implements Kid, MouseReactive, KeyReactive {
 		}
 	}
 } //end PolycolorWireframe
-
-/*
-{"delay":10,"polygon colors":"111111111111111111111111111111111111111111111111"},
-
-	]
-},{
-	"name":"encircle",
-	"frames":[
-*/

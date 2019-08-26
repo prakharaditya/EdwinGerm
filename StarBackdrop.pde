@@ -1,8 +1,8 @@
 /** 
-* Stars that randomly blink and change position.
-* Update the max of "timer" to make it faster/slower
+* Random stars that fill the screen
+* While running hit S to generate new stars
 */
-class StarBackdrop implements Kid, KeyReactive {
+class StarBackdrop implements Kid {
 	PGraphics backdrop;
 	int[] palette = new int[] { #D1CAA1, #66717E, #383B53, #32213A, #110514 }; 
 	int starCount;
@@ -11,6 +11,7 @@ class StarBackdrop implements Kid, KeyReactive {
 
 	StarBackdrop() { this(250); }
 	StarBackdrop(int numStars) {
+		backdrop = createGraphics(width, height);
 		newStarCount(numStars);
 		//random star blinking (only works when we draw every frame rather than drawing to a PGraphics)
 		// timer = new BoundedInt(50);
@@ -27,8 +28,8 @@ class StarBackdrop implements Kid, KeyReactive {
 		//draw each star
 		float tip = 6;
 		float mid = tip / 3;
-		backdrop = createGraphics(width, height);
 		backdrop.beginDraw();
+		backdrop.clear();
 		for (int i = 0; i < stars.length; i++) {
 			backdrop.stroke(palette[i % palette.length]);
 			if (i % 3 == 0) { //cross
@@ -102,6 +103,10 @@ class StarBackdrop implements Kid, KeyReactive {
 			newStarCount(starCount); //redraw
 			return getName();
 		}
+		return "";
+	}
+
+	String mouse() {
 		return "";
 	}
 

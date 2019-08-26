@@ -3,13 +3,12 @@
 * lets you play with their parameters live. Eventually
 * it will also be able to save arrangements you've made 
 */
-public class LaserboltPositioner implements Kid, MouseReactive, KeyReactive {
+public class LaserboltPositioner implements Kid {
 	ArrayList<Laserbolt> lasers;
 	Laserbolt selected;
 	GadgetPanel gPanel;
 	String openFilepath;
 	int anchorDiameter;
-	
 	//keys for the JSON file
 	final String LASERBOLT_LIST = "laserbolt list",
 	COLOR_MAIN = "color 0",
@@ -36,8 +35,8 @@ public class LaserboltPositioner implements Kid, MouseReactive, KeyReactive {
 	LaserboltPositioner() { this(null, true); }
 	LaserboltPositioner(String filename) { this(filename, false); }
 	LaserboltPositioner(String filename, boolean gadgetPanelVisible) { 
-		if (filename != null) openFilepath = EdFiles.DATA_FOLDER + filename;
-		else openFilepath = null;
+		if (filename != null) filename = EdFiles.DATA_FOLDER + filename;
+		openFilepath = filename;
 		anchorDiameter = 70;
 		lasers = new ArrayList<Laserbolt>();
 		addLaser();
@@ -281,7 +280,7 @@ public class LaserboltPositioner implements Kid, MouseReactive, KeyReactive {
 
 	void addLaser() {
 		int margin = 80;
-		selected = (new Laserbolt(margin, margin, margin, height - margin));
+		selected = new Laserbolt(margin, margin, margin, height - margin);
 		lasers.add(selected);
 	}
 
@@ -292,6 +291,7 @@ public class LaserboltPositioner implements Kid, MouseReactive, KeyReactive {
 
 	void drawSelf(PGraphics canvas) {
 		if (openFilepath != null) digestFile();
+		//edit anchors
 		if (gPanel.isVisible) {
 			canvas.noStroke();
 			canvas.fill(255, 100);
@@ -452,10 +452,6 @@ class Laserbolt implements Kid {
 		jolt();
 	}
 
-	String getName() {
-		return "Laserbolt";
-	}
-
 	void drawSelf(PGraphics canvas) {
 		if (!isVisible) return;
 		timer.increment();
@@ -550,6 +546,18 @@ class Laserbolt implements Kid {
 		schwarzenegger.jolts = jolts;
 		schwarzenegger.jolt();
 		return schwarzenegger;
+	}
+
+	String mouse() {
+		return "";
+	}
+
+	String keyboard(KeyEvent event) {
+		return "";
+	}
+
+	String getName() {
+		return "Laserbolt";
 	}
 
 	private class LaserPoint {
