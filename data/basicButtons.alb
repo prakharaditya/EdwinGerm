@@ -1,8 +1,8 @@
 {
 "width":24,
 "height":24,
-"colorPalette":[-14737633, -11709636, -7629459, -9227218, -3879007],
-"backgroundColor":4,
+"colorPalette":[-14737633, -11709636, -7629459, -3879007, -9227218],
+"backgroundColor":3,
 
 "pixelLayers":[{
 	"paletteIndex":0,

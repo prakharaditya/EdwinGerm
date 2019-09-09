@@ -28,6 +28,7 @@ class StarBackdrop implements Kid {
 		//draw each star
 		float tip = 6;
 		float mid = tip / 3;
+		//backdrop.noSmooth();
 		backdrop.beginDraw();
 		backdrop.clear();
 		for (int i = 0; i < stars.length; i++) {
@@ -96,6 +97,64 @@ class StarBackdrop implements Kid {
 			}
 		}
 		*/
+	}
+
+	String keyboard(KeyEvent event) {
+		if (event.getAction() == KeyEvent.RELEASE && event.getKeyCode() == Keycodes.VK_S) { 
+			newStarCount(starCount); //redraw
+			return getName();
+		}
+		return "";
+	}
+
+	String mouse() {
+		return "";
+	}
+
+	String getName() {
+		return "StarBackdrop";
+	}
+}
+
+
+
+/** 
+* Random stars that fill the screen
+* While running hit S to generate new stars
+*/
+class PixelStarBackdrop implements Kid {
+	PGraphics backdrop;
+	Album albumStars;
+	int starCount;
+
+	PixelStarBackdrop() { this(250); }
+	PixelStarBackdrop(int numStars) { this(numStars, 1.0); }
+	PixelStarBackdrop(int numStars, float albumScale) {
+		backdrop = createGraphics(width, height);
+		albumStars = new Album("tiles\\stars.alb", albumScale);
+		newStarCount(numStars);
+	}
+
+	void newStarCount(int numStars) {
+		starCount = numStars;
+		backdrop.beginDraw();
+		backdrop.clear();
+		//backdrop.background(#101024);
+		backdrop.background(#050201);
+		int x, y;
+		for (int i = 0; i < numStars; i++) {
+			//make position inline with other star's pixels for when the scale isn't 1.0
+			x = (int)(random(width) / albumStars.scale) * (int)albumStars.scale;
+			y = (int)(random(height) / albumStars.scale) * (int)albumStars.scale;
+			backdrop.image(albumStars.randomPage(), x, y);
+			//backdrop.image(albumStars.randomPage(), random(width), random(height));
+		}
+		backdrop.endDraw();
+	}
+
+	void drawSelf(PGraphics canvas) {
+		//newStarCount(starCount);
+		canvas.image(backdrop, 0, 0);
 	}
 
 	String keyboard(KeyEvent event) {

@@ -9,18 +9,22 @@ public class LightLattice implements Kid {
 	PGraphics wireframe;
 	XY[] basePoints;
 	XY offset;
+	BoundedInt frameWidth;
 	int quadsPerLine, standardLength;
+	boolean useWireframe;
 
-	LightLattice() { this(50); }
-	LightLattice(int cellsPerLine) {
-		palette = new PalettePicker(new int[] { #05162B, #134372, #3176BC, #9AC5EA, #DCE6ED });
-		//lattice = new ArrayList<LatticeLine>();
+	LightLattice() { this(8); }
+	LightLattice(int cellsPerLine) { this(cellsPerLine, new int[] { #05162B, #134372, #3176BC, #9AC5EA, #DCE6ED }); }
+	LightLattice(int cellsPerLine, int[] paletteColors) {
 		quadsPerLine = cellsPerLine;
+		palette = new PalettePicker(paletteColors);
+		//lattice = new ArrayList<LatticeLine>();
 		basePoints = new XY[quadsPerLine + 1];
 		XY[] linePoints = new XY[basePoints.length];
 		XY anchor = new XY(50, 50);
 		offset = new XY(0, 0);
-		standardLength = 9;
+		frameWidth = new BoundedInt(1, 10);
+		standardLength = 40;
 		for (int i = 0; i < basePoints.length; i++) {
 			basePoints[i] = new XY(anchor.x, anchor.y);
 			linePoints[i] = new XY(anchor.x, anchor.y + standardLength);
@@ -29,7 +33,7 @@ public class LightLattice implements Kid {
 		LatticeLine currentLine, prevLine;
 		root = new LatticeLine(linePoints, null);
 		prevLine = root;
-		for (int a = 0; a < 80; a++) {
+		for (int a = 0; a < 10; a++) {
 			linePoints = new XY[basePoints.length];
 			anchor = prevLine.points[0].clone();
 			for (int i = 0; i < basePoints.length; i++) {
@@ -43,6 +47,7 @@ public class LightLattice implements Kid {
 			tip = currentLine;
 		}
 		wireframe = createGraphics(width, height);
+		useWireframe = true;
 		redrawSkeleton();
 	}
 
@@ -65,13 +70,14 @@ public class LightLattice implements Kid {
 			canvas.beginShape();
 			if (stroked) {
 				canvas.stroke(palette.colors.get(0));
-				canvas.strokeWeight(3);
+				canvas.strokeWeight(frameWidth.value);
 				canvas.noFill();
 			}
 			else {
 				canvas.noStroke();
-				if (random(450) > 420) canvas.fill(0,0);
-				else canvas.fill(palette.colors.get(line.paletteColors[i]));
+				canvas.fill(palette.colors.get(line.paletteColors[i]));
+				// if (random(450) > 420) canvas.fill(0,0);
+				// else canvas.fill(palette.colors.get(line.paletteColors[i]));
 			}
 			canvas.vertex(prevPoints[i].x, prevPoints[i].y);
 			canvas.vertex(prevPoints[i + 1].x, prevPoints[i + 1].y);
@@ -87,12 +93,12 @@ public class LightLattice implements Kid {
 			drawLine(canvas, currentLine, false);
 			currentLine = currentLine.next;
 		} 
-		if (edwin.mouseBtnHeld == LEFT) {
-			canvas.fill(255);
-			canvas.noStroke();
-			canvas.ellipse(mouseX, mouseY, 40, 40);
-		}
-		canvas.image(wireframe, offset.x, offset.y);
+		// if (edwin.mouseBtnHeld == LEFT) {
+		// 	canvas.fill(255);
+		// 	canvas.noStroke();
+		// 	canvas.ellipse(mouseX, mouseY, 40, 40);
+		// }
+		if (useWireframe) canvas.image(wireframe, offset.x, offset.y);
 	}
 
 	String mouse() {
@@ -103,6 +109,18 @@ public class LightLattice implements Kid {
 	}
 
 	String keyboard(KeyEvent event) {
+		if (event.getAction() != KeyEvent.RELEASE) {
+			return "";
+		}
+		int kc = event.getKeyCode();
+		if (kc == Keycodes.VK_Q) {
+			frameWidth.decrement();
+			redrawSkeleton();
+		}
+		else if (kc == Keycodes.VK_W) {
+			frameWidth.increment();
+			redrawSkeleton();
+		}
 		return "";
 	}
 
@@ -149,4 +167,13 @@ public class LightLattice implements Kid {
 			return inside;
 		}
 	}
+
 } //end LightLattice
+
+public static enum FadeIn {
+	ASSIGN, LIST, RISE;
+}
+
+public static enum FadeOut {
+	ASSIGN, LIST, DECAY;
+}

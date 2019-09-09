@@ -1,16 +1,120 @@
 /** 
 * This lets you make a ~wireframe statue.
+* File saved as .pw
 */
-public class PolycolorWireframe implements Kid {
-	//ArrayList<Integer> colorPalette;
+class Polywire extends DraggableWindow {
+	GridButtons modeButtons;
+	PolywireMode editMode;
+
+	public static final String BUTTON_MENU_FILENAME = "polywireButtons.alb",
+	BLANK = "blank",
+	BLANK_CHECKED = "blankChecked",
+	BUTTON_FIGURE = "modeFigure",
+	BUTTON_FIGURE_CHECKED = "modeFigureChecked",
+	BUTTON_SHIMMER = "modeShimmer",
+	BUTTON_SHIMMER_CHECKED = "modeShimmerChecked",
+	BUTTON_MORPH = "modeMorph",
+	BUTTON_MORPH_CHECKED = "modeMorphChecked",
+	WAND = "wand",
+	WAND_CHECKED = "wandChecked";
+
+	Polywire() {
+		super(0, 0);
+		modeButtons = new GridButtons(body, UI_PADDING, dragBar.h + UI_PADDING * 2, 1, 
+			new Album(BUTTON_MENU_FILENAME), 
+			new String[] { BUTTON_FIGURE, BUTTON_SHIMMER, BUTTON_MORPH, WAND, BLANK },
+			new String[] { BUTTON_FIGURE_CHECKED, BUTTON_SHIMMER_CHECKED, BUTTON_MORPH_CHECKED, WAND_CHECKED, BLANK_CHECKED }
+		);
+		modeButtons.setCheck(0, true);
+		editMode = PolywireMode.EDIT_FIGURE;
+
+		body.setSize(modeButtons.body.w + UI_PADDING * 2, dragBar.h + modeButtons.body.h + UI_PADDING * 3);
+		dragBar.w = modeButtons.body.w;
+		isVisible = true;
+	}
+
+	void drawSelf(PGraphics canvas) {
+		if (!isVisible) return;
+		super.drawSelf(canvas);
+		canvas.pushMatrix();
+		canvas.translate(body.x, body.y);
+		modeButtons.drawSelf(canvas);
+		canvas.popMatrix();
+		switch (editMode) {
+			case EDIT_FIGURE:
+				break;
+			case EDIT_SHIMMER:
+				break;
+		}
+	}
+
+	String mouse() { 
+		if (!isVisible) return "";
+		if (super.mouse() != "") return "dragging";
+		if (edwin.mouseBtnReleased != LEFT) return "";
+		String modeClicked = modeButtons.mouse();
+		if (modeClicked == "") return "";
+		else if (!modeClicked.endsWith("Checked")) {
+			modeButtons.uncheckAll();
+			switch (modeClicked) {
+				case BUTTON_FIGURE:
+					editMode = PolywireMode.EDIT_FIGURE;
+					modeButtons.toggleImage(0);
+					break;
+				case BUTTON_SHIMMER:
+					editMode = PolywireMode.EDIT_SHIMMER;
+					modeButtons.toggleImage(1);
+					break;
+				case BUTTON_MORPH:
+					editMode = PolywireMode.EDIT_MORPH;
+					modeButtons.toggleImage(2);
+					break;
+				case WAND:
+					modeButtons.toggleImage(3);
+					break;
+				case BLANK:
+					modeButtons.toggleImage(4);
+					break;
+			}
+			return getName();
+		}
+
+		return "";
+	}
+
+	String keyboard(KeyEvent event) {
+		if (event.getAction() != KeyEvent.RELEASE) {
+			return "";
+		}
+		int kc = event.getKeyCode();
+		if (kc == Keycodes.VK_W) {
+			toggleVisibility();
+			return getName();
+		}
+		return "";
+	}
+}
+
+
+public enum PolywireMode {
+	EDIT_FIGURE, EDIT_SHIMMER, EDIT_MORPH
+}
+
+
+
+
+
+
+public class PolywireOld implements Kid {
 	ArrayList<XY> allDots, buildingPolygon;
 	ArrayList<AnimationFrames> allAnimations;
 	ArrayList<Polygon> allPolygons;
 	Polygon selectedPolygon;
 	AnimationFrames selectedAnimation;
 	PShape selectedPolygonBorder, mouseoverPolygonBorder;
-	GadgetPanel gPanel;
+	GadgetPanel gPanel, modePanel;
 	PalettePicker palette;
+	ReferenceImagePositioner referenceImage;
 	BoundedInt selectedColor, animationFramerate;
 	XY selectedAnchor, symmetryAnchor, originOffset;
 	String openFilepath, currentAnimation;
@@ -35,15 +139,17 @@ public class PolycolorWireframe implements Kid {
 	ANIMATION_NAME = "name",
 	ANIMATION_FRAMES = "frames",
 	FRAME_DELAY = "delay",
-	FRAME_COLORS = "polygon colors";
+	FRAME_COLORS = "polygon colors",
+	//modes
+	MODE_FIGURE = "",
+	MODE_SHIMMER = " ";
 
-	PolycolorWireframe() { this(null, true); }
-	PolycolorWireframe(String filename) { this(filename, false); }
-	PolycolorWireframe(String filename, boolean gadgetPanelVisible) { 
+	PolywireOld() { this(null, true); }
+	PolywireOld(String filename) { this(filename, false); }
+	PolywireOld(String filename, boolean gadgetPanelVisible) { 
 		if (filename != null) filename = EdFiles.DATA_FOLDER + filename;
 		openFilepath = filename;
-		palette = new PalettePicker(new int[] { #05162B, #134372, #3176BC, #9AC5EA, #DCE6ED });
-		palette.isVisible = false;
+		palette = new PalettePicker(new int[] { #05162B, #134372, #3176BC, #9AC5EA, #DCE6ED }, "Polywire Colors", false);
 		allAnimations = new ArrayList<AnimationFrames>();
 		allAnimations.add(new AnimationFrames("first"));
 		allDots = new ArrayList<XY>();
@@ -56,67 +162,29 @@ public class PolycolorWireframe implements Kid {
 		selectedPolygonBorder = mouseoverPolygonBorder = null;
 		selectedColor = new BoundedInt(0, palette.colors.size() - 1);
 		animationFramerate = new BoundedInt(0, 0);
-		//animationFramerate = new BoundedInt(0, 3);
 		animationFramerate.loops = true;
 		symmetryAnchor = new XY(width / 2, height / 2);
 		originOffset = new XY(0, 0);
 		delayCounter = 0;
 		useVertSym = setVertSym = useHorzSym = setHorzSym = modeDefineFace = playAnimation = queueNextAnimation = false;
-		gPanel = new GadgetPanel(100, 100, "(P) Polycolor Wireframe!");
+		gPanel = new GadgetPanel(100, 100, "(P) Polywire!");
 		gPanel.isVisible = gadgetPanelVisible;
 		//String[] minusPlus = new String[] { GadgetPanel.MINUS, GadgetPanel.PLUS };
 
 		gPanel.addItem("open|save", new String[] { GadgetPanel.OPEN, GadgetPanel.SAVE }, new Command() {
 			void execute(String arg) {
 				if (arg == GadgetPanel.OPEN) {
-					selectInput("Open Lasers...", "openFile", null, PolycolorWireframe.this);
+					selectInput("Open Lasers...", "openFile", null, PolywireOld.this);
 				}
 				else { // GadgetPanel.SAVE
-					selectOutput("Save Lasers...", "saveFile", null, PolycolorWireframe.this);
+					selectOutput("Save Lasers...", "saveFile", null, PolywireOld.this);
 				}
 			}
 		});
 
-		// gPanel.addItem("colors", new String[] { GadgetPanel.ARROW_W, GadgetPanel.ARROW_E, GadgetPanel.START_LIGHT, GadgetPanel.PLUS }, new Command() {
-		// 	void execute(String arg) {
-		// 		if (arg == GadgetPanel.ARROW_W) {
-		// 			selectedColor.decrement();
-		// 			gPanel.panelLabel = "selected color: " + selectedColor.value;
-		// 			return;
-		// 		}
-		// 		else if (arg == GadgetPanel.ARROW_E) {
-		// 			selectedColor.increment();
-		// 			gPanel.panelLabel = "selected color: " + selectedColor.value;
-		// 			return;
-		// 		}
-		// 		else if (arg == GadgetPanel.START_LIGHT) {
-		// 			Color picked = JColorChooser.showDialog(null, "Change color", new Color(colorPalette.get(selectedColor.value)));
-		// 			if (picked == null) return;
-		// 			colorPalette.set(selectedColor.value, picked.getRGB());
-		// 			gPanel.panelLabel = "color changed";
-		// 		}
-		// 		else { // if (arg == GadgetPanel.PLUS) {
-		// 			if (colorPalette.size() == 10) {
-		// 				println("can't have more than 10 colors so far...");
-		// 				return;
-		// 			}
-		// 			Color picked = JColorChooser.showDialog(null, "Pick new color", Color.BLACK);
-		// 			if (picked == null) return;
-		// 			colorPalette.add(picked.getRGB());
-		// 			selectedColor.incrementMax();
-		// 			selectedColor.maximize();
-		// 			gPanel.panelLabel = "color added";
-		// 		}
-
-		// 		for (Polygon polygon : allPolygons) {
-		// 			polygon.redrawFace(selectedColor.value);
-		// 		}
-		// 	}
-		// });
-
 		gPanel.addItem("colors", GadgetPanel.START_LIGHT, new Command() {
 			void execute(String arg) {
-				palette.isVisible = !palette.isVisible;
+				palette.toggleVisibility();
 				palette.body.set(mouseX, mouseY);
 			}
 		});
@@ -191,12 +259,12 @@ public class PolycolorWireframe implements Kid {
 			}
 		});
 
-		gPanel.addItem("animation play|stop|new", new String[] { GadgetPanel.ARROW_E, GadgetPanel.START_LIGHT, GadgetPanel.PLUS }, new Command() {
+		gPanel.addItem("animation play|stop|new", new String[] { GadgetPanel.ARROW_E, GadgetPanel.STOP_LIGHT, GadgetPanel.PLUS }, new Command() {
 			void execute(String arg) {
 				if (arg == GadgetPanel.ARROW_E) {
 					restartAnimation();
 				}
-				else if (arg == GadgetPanel.START_LIGHT) {
+				else if (arg == GadgetPanel.STOP_LIGHT) {
 					playAnimation = false;
 				}
 				else { //if (arg == GadgetPanel.PLUS) {
@@ -212,7 +280,6 @@ public class PolycolorWireframe implements Kid {
 				}
 			}
 		});
-
 
 		gPanel.addItem("animation prev|next|rename", new String[] { GadgetPanel.ARROW_W, GadgetPanel.ARROW_E, GadgetPanel.NO }, new Command() {
 			void execute(String arg) {
@@ -260,6 +327,29 @@ public class PolycolorWireframe implements Kid {
 				}
 			}
 		});
+
+		modePanel = new GadgetPanel(100, 100, "Mode", null) {
+			void disableAll() {
+				for (PanelItem item : panelItems) {
+					item.buttons.setCheck(false);
+				}
+			}
+		};
+
+		modePanel.addItem(MODE_FIGURE, "modeFigure", "modeFigureChecked", new Command() {
+			void execute(String arg) {
+				modePanel.getButtons(MODE_FIGURE).toggleImage();
+			}
+		});
+
+		modePanel.getButtons(MODE_FIGURE).toggleImage();
+		modePanel.addItem(MODE_SHIMMER, "modeShimmer", "modeShimmerChecked", new Command() {
+			void execute(String arg) {
+				modePanel.getButtons(MODE_SHIMMER).toggleImage();
+			}
+		});
+
+		edwin.useSmooth = false;
 	} //end constructor
 
 	void addDot() {
@@ -297,6 +387,9 @@ public class PolycolorWireframe implements Kid {
 		//wireframe
 		for (Polygon polygon : allPolygons) {
 			canvas.shape(polygon.face);
+		}
+		for (Polygon polygon : allPolygons) {
+			canvas.shape(polygon.wire);
 		}
 		
 		if (!gPanel.isVisible) {
@@ -351,11 +444,12 @@ public class PolycolorWireframe implements Kid {
 
 		canvas.popMatrix();
 		gPanel.drawSelf(canvas);
+		modePanel.drawSelf(canvas);
 		palette.drawSelf(canvas);
 	}
 
 	String mouse() {
-		if (gPanel.mouse() != "" || palette.mouse() != "") {
+		if (gPanel.mouse() != "" || palette.mouse() != "" || modePanel.mouse() != "") {
 			return getName(); //if mouse() returns something that means the panel reacting and we'll ignore the event here
 		}
 
@@ -622,10 +716,10 @@ public class PolycolorWireframe implements Kid {
 
 		//list polygons as json objects {"dots":[vertex indicies...]}
 		fileLines.add(jsonKVNoComma(POLYGONS, "["));
-		for (Polygon face : allPolygons) {
-			String[] dotIndicies = new String[face.dots.length];
-			for (int i = 0; i < face.dots.length; i++) {
-				dotIndicies[i] = String.valueOf(allDots.indexOf(face.dots[i]));
+		for (Polygon polygon : allPolygons) {
+			String[] dotIndicies = new String[polygon.dots.length];
+			for (int i = 0; i < polygon.dots.length; i++) {
+				dotIndicies[i] = String.valueOf(allDots.indexOf(polygon.dots[i]));
 			}
 			fileLines.add(TAB + "{" + jsonKV(EdFiles.DOTS, Arrays.toString(dotIndicies) + "}")); 
 		}
@@ -649,13 +743,13 @@ public class PolycolorWireframe implements Kid {
 	}
 
 	String getName() {
-		return "PolycolorWireframe";
+		return "PolywireOld";
 	}
 
 	/** Face on the wireframe */
 	class Polygon {
 		XY[] dots;
-		PShape face;
+		PShape face, wire;
 		int paletteIndex;
 
 		Polygon(XY[] anchors) { this(anchors, 1); }
@@ -669,14 +763,24 @@ public class PolycolorWireframe implements Kid {
 		void redrawFace(int paletteColor) {
 			PShape paintedFace = createShape();
 			paintedFace.beginShape();
-			paintedFace.fill(palette.colors.get(paletteColor));
-			paintedFace.stroke(palette.colors.get(0));
-			paintedFace.strokeWeight(2);
+			if (paletteColor == 1) paintedFace.noFill();
+			else paintedFace.fill(palette.colors.get(paletteColor));
+			paintedFace.stroke(#201708);
+			paintedFace.strokeWeight(3);
+			PShape paintedWire = createShape();
+			paintedWire.beginShape();
+			paintedWire.noFill();
+			if (random(100) > 90) paintedWire.stroke(#17a1a9);
+			else paintedWire.stroke(#173b47);
+			paintedWire.strokeWeight(1);
 			for (XY dot : dots) {
 				paintedFace.vertex(dot.x, dot.y);
+				paintedWire.vertex(dot.x, dot.y);
 			}
 			paintedFace.endShape(CLOSE);
+			paintedWire.endShape(CLOSE);
 			face = paintedFace;
+			wire = paintedWire;
 			paletteIndex = paletteColor;
 		}
 
@@ -751,4 +855,4 @@ public class PolycolorWireframe implements Kid {
 			polygonColors[currentFrame.value] = updated;
 		}
 	}
-} //end PolycolorWireframe
+} //end PolywireOld

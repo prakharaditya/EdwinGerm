@@ -1,12 +1,12 @@
-/*
+/**
 * Edwin
 * v2.2 alpha
 *
 * Edwin is a god class that essentially allows you to have layers in Processing.
 * Each "layer" class must implement Kid in order to be compatible with Edwin and 
-* added to Edwin in setup() (or dynamically from your Scheme or whatever).
+* added to Edwin in setup() (or dynamically from your Scheme or whatever) using addKid().
 * Each Kid class gets its own draw, mouse, and keyboard functions so you don't have to
-* flood the ones provided by Processing. That means Edwin hijacks mouseMoved() and all like it.
+* flood the ones provided by Processing. That means Edwin hijacks mouseMoved() and all like it!
 * To use the editor make sure to include edwin.addKid(new EditorWindow()); in your setup()
 * Feel free to edit anything and everything in here.
 * For a small example project see the comment below the Edwin class
@@ -36,7 +36,7 @@ void mouseWheel(MouseEvent event) { edwin.handleMouse(event); }
 * The rules aren't very fixed - from this base you can go in many directions
 */
 interface Kid {
-	//void think(); //called before drawSelf() but not used atm
+	//void think(); //called before drawSelf()
 	void drawSelf(PGraphics canvas);
 	String getName(); //might not be useful, may remove
 	String mouse(); //returns a String so it can communicate backwards to whoever called it
@@ -53,9 +53,7 @@ interface Scheme {
 }
 
 /**
-* Singleton that you add Kids to. 
-* It's a pretty small class really, 
-* all the power is in Processing and Java.
+* Singleton that you add Kids and Schemes to. It's a fairly small class really
 */
 class Edwin {
 	PGraphics canvas;
@@ -64,7 +62,7 @@ class Edwin {
 	ArrayList<Scheme> schemes;
 	//now for some values you might check in your Kid classes
 	XY mouseHoldInitial, mouseLast;
-	int mouseHoldStartMillis, mouseHeldMillis, tickLength, mouseTicking;
+	int mouseHoldStartMillis, mouseHeldMillis, mouseTickLength, mouseTicking;
 	int mouseBtnBeginHold, mouseBtnHeld, mouseBtnReleased, mouseWheelValue;
 	boolean useSmooth, mouseHoldTicked, mouseHovering;
 
@@ -79,9 +77,9 @@ class Edwin {
 		mouseHeldMillis = mouseHoldStartMillis = mouseTicking = 0;
 		mouseBtnHeld = mouseBtnBeginHold = mouseBtnReleased = mouseWheelValue = 0;
 		useSmooth = true; //use Processing's built-in smooth() or noSmooth()
-		mouseHoldTicked = false; //true for one draw tick every couple ms when you've been holding down a mouse button
-		mouseHovering = false;
-		tickLength = 17;
+		mouseHovering = false; //true if the mouse event is a plain move
+		mouseHoldTicked = false; //true for one drawSelf() tick every couple ms when you've been holding down a mouse button
+		mouseTickLength = 17; //number of cycles between ticks
 	}
 
 	void addScheme(Scheme scheme) {
@@ -100,7 +98,7 @@ class Edwin {
 	void think() {
 		if (mouseBtnHeld != 0) {
 			mouseHeldMillis = millis() - mouseHoldStartMillis; //gives a more reliable figure than using mouse events to update
-			if (++mouseTicking > tickLength) {
+			if (++mouseTicking > mouseTickLength) {
 				mouseTicking = 0;
 				mouseHoldTicked = true;
 			}
@@ -581,7 +579,7 @@ float[] perlinNoise1D(int octaves) {
 		values[x] = noiseVal / scaleAcc;
 		//println(values[x]);
 	}
-	//println("len:" + values.length +"  0:" + values[0] + "  max:" + values[values.length - 1]);
+	//println("len:" + values.length + ",  first:" + values[0] + ",  last:" + values[values.length - 1]);
 	return values;
 }
 
@@ -603,11 +601,12 @@ String jsonKV(String keyName, boolean value) { return jsonKV(keyName, String.val
 String jsonKV(String keyName, String value) { return jsonKVNoComma(keyName, value + ","); }
 String jsonKVString(String keyName, String value) { return jsonKVNoComma(keyName, "\"" + value + "\","); }
 String jsonKVNoComma(String keyName, String value) { return "\"" + keyName + "\":" + value; }
-String TAB = "\t";
 
 
 
 /** Constants */
+final String TAB = "\t";
+
 class EdColors {
 	//Edwin VanCleef https://media-hearth.cursecdn.com/avatars/331/109/3.png
 	//https://lospec.com/palette-list/dirtyboy
@@ -774,7 +773,7 @@ class Keycodes {
 * A kind of sprite sheet that is made by my tile editor EditorWindow.
 * Albums have one set of pixel layers, and another set of "pages" that use 
 * any number of those pixel layers to create an image. Also requires a 
-* small color palette where each pixel layer uses one color. This allows you to
+* color palette so each pixel layer uses only one color. This allows you to
 * reuse layers and quickly change the color scheme of all images fast and uniformly. 
 * Files are typically saved with a .alb extension and are plain text (json)
 * Just use its page() function to get a single image from the album
@@ -783,16 +782,17 @@ class Album {
 	PGraphics[] pages; //images or frames
 	IntDict tableOfContents;
 	int pixelW, pixelH;
-	float w, h;
+	float w, h, scale;
 
 	Album(String filename) { this(filename, 1.0); }
-	Album(String filename, float scale) {
+	Album(String filename, float albumScale) {
 		JSONObject json = loadJSONObject(EdFiles.DATA_FOLDER + filename);
 		JSONArray jsonPages = json.getJSONArray(EdFiles.ALBUM_PAGES);
 		JSONArray jsonLayers = json.getJSONArray(EdFiles.PIXEL_LAYERS);
 		JSONArray colorPalette = json.getJSONArray(EdFiles.COLOR_PALETTE);
 		pixelW = json.getInt(EdFiles.PX_WIDTH);
 		pixelH = json.getInt(EdFiles.PX_HEIGHT);
+		scale = albumScale;
 		w = pixelW * scale;
 		h = pixelH * scale;
 		tableOfContents = new IntDict();
@@ -833,6 +833,59 @@ class Album {
 	PGraphics page(String pageName) {
 		return pages[tableOfContents.get(pageName, 0)];
 	}
+
+	PGraphics randomPage() {
+		return pages[(int)random(pages.length)];
+	}
+}
+
+
+
+/**
+* Simple class for a rectangle with words in it
+*/
+class TextLabel implements Kid {
+	NestedRectBody body; 
+	String text, id;
+	Integer textColor, bgdColor, strokeColor; //nullable 
+	final int PADDING = 4;
+
+	TextLabel(String labelText, float x, float y) { this(new RectBody(), labelText, x, y); }
+	TextLabel(RectBody parent, String labelText, float x, float y) { this(parent, labelText, x, y, null, null, null); }
+	TextLabel(RectBody parent, String labelText, float x, float y, Integer fgd, Integer bgd, Integer border) { 
+		body = new NestedRectBody(parent, x, y, labelText.length() * 7 + PADDING * 2, 18); //7 here is an estimate of how many pixels wide one character is
+		text = labelText;
+		textColor = fgd;
+		bgdColor = bgd;
+		strokeColor = border;
+		id = "TextLabel"; //can update if you want I guess. Probably easier to keep a reference to the object itself in your class rather than parse this id
+	}
+
+	void drawSelf(PGraphics canvas) {
+		if (bgdColor != null || strokeColor != null) {
+			if (bgdColor != null) canvas.fill(bgdColor);
+			else canvas.noFill();
+			if (strokeColor != null) canvas.stroke(strokeColor);
+			else canvas.noStroke();
+			canvas.strokeWeight(1); //no effect if noStroke()
+			canvas.rect(body.x, body.y, body.w, body.h);
+		}
+		if (textColor != null) canvas.fill(textColor);
+		else canvas.fill(EdColors.UI_DARKEST);
+		canvas.text(text, body.x + PADDING, body.yh() - PADDING); //text draws from the bottom left going up and right
+	}
+
+	String mouse() {
+		return "";
+	}
+
+	String keyboard(KeyEvent event) {
+		return "";
+	}
+
+	String getName() {
+		return id;
+	}
 }
 
 
@@ -862,9 +915,9 @@ class GridButtons implements Kid {
 		origPages = albumPages.clone();
 	}
 
-	/** Override this when adding directly to Edwin **/
+	/** You can override this or just pay attention to mouse() **/
 	void buttonClick(String clicked) { }
-	/*************************************************/
+	/************************************************************/
 
 	void drawSelf(PGraphics canvas) {
 		for (int i = 0; i < buttonPages.length; i++) {
@@ -876,14 +929,12 @@ class GridButtons implements Kid {
 
 	String mouse() {
 		if (!body.isMouseOver()) {
-		// ||(edwin.mouseBtnHeld == 0 && edwin.mouseBtnReleased != LEFT) ||
-		// 	(edwin.mouseBtnReleased == 0 && edwin.mouseBtnHeld != LEFT)) {
 			return "";
 		}
 		int index = indexAtMouse();
 		if (index < buttonPages.length) {
 			buttonClick(buttonPages[index]);
-			return buttonPages[index]; //respond with the page name of the button that was clicked
+			return buttonPages[index]; //respond with the page name of the button the mouse is over
 		}
 		return "";
 	}
@@ -900,9 +951,16 @@ class GridButtons implements Kid {
 		else buttonPages[index] = origPages[index];
 	}
 
+	void uncheckAll() {
+		for (int i = 0; i < buttonPages.length; i++) {
+			setCheck(i, false);
+		}
+	}
+
 	int indexAtMouse() { return indexAtPosition(mouseX, mouseY); }
 	int indexAtPosition(XY point) { return indexAtPosition(point.x, point.y); }
 	int indexAtPosition(float _x, float _y) {
+		//if (!body.isMouseOver()) return -1;
 		float relativeX = _x - body.realX();
 		float relativeY = _y - body.realY();
 		int index = (int)(floor(relativeY / buttonAlbum.h) * columns + (relativeX / buttonAlbum.w));
@@ -920,32 +978,31 @@ class GridButtons implements Kid {
 
 /**
 * Contains basics for a window that floats in the sketch and can be dragged around.
-* When extending this class use super like so:
+* Requires a little wiring up in the child class. When extending use super like so:
 *
-class MyWindow exends DraggableWindow {
-	MyWindow() {
-		super(myX, myY);
-		body.setSize(myW, myH);
-		dragBar.w = body.w - UI_PADDING * 2;
-		...
-	}
-
-	void drawSelf(PGraphics canvas) {
-		if (!isVisible) return;
-		super.drawSelf(canvas);
-		canvas.pushMatrix();
-		canvas.translate(body.x, body.y);
-		...
-		canvas.popMatrix();
-	}
-
-	String mouse() {
-		if (!isVisible) return "";
-		String windowResponse = super.mouse(); //only responds if the window is being dragged
-		if (windowResponse != "") return windowResponse;
-		...
-	}
-}
+*	class MyWindow extends DraggableWindow {
+*		MyWindow() {
+*			super(myX, myY);
+*			body.setSize(myW, myH);
+*			dragBar.w = body.w - UI_PADDING * 2;
+*			...
+*		}
+*
+*		void drawSelf(PGraphics canvas) {
+*			if (!isVisible) return;
+*			super.drawSelf(canvas);
+*			canvas.pushMatrix();
+*			canvas.translate(body.x, body.y);
+*			...
+*			canvas.popMatrix();
+*		}
+*
+*		String mouse() {
+*			if (!isVisible) return "";
+*			if (super.mouse() != "") return "dragging";
+*			...
+*		}
+*	}
 *
 */
 class DraggableWindow implements Kid {
@@ -958,7 +1015,7 @@ class DraggableWindow implements Kid {
 
 	DraggableWindow() { this(random(width - 100), random(height - 100)); }
 	DraggableWindow(float _x, float _y) {
-		int baseHeight = 18, baseWidth = 50;
+		int baseHeight = 18, baseWidth = 40;
 		body = new RectBody(_x, _y, baseWidth + UI_PADDING * 2, baseHeight + UI_PADDING * 2);
 		dragBar = new NestedRectBody(body, UI_PADDING, UI_PADDING, baseWidth, baseHeight);
 		dragOffset = new XY();
@@ -976,15 +1033,21 @@ class DraggableWindow implements Kid {
 		canvas.stroke(EdColors.UI_DARKEST);
 		canvas.fill(EdColors.UI_NORMAL);
 		canvas.rect(body.x, body.y, body.w, body.h);
-		canvas.noStroke();
+		if (!dragBar.isMouseOver()) canvas.noStroke();
 		canvas.fill(EdColors.UI_DARK);
 		canvas.rect(dragBar.realX(), dragBar.realY(), dragBar.w, dragBar.h);
 		canvas.fill(EdColors.UI_LIGHT);
-		canvas.text(panelLabel, dragBar.realX() + UI_PADDING, dragBar.realYH() - 6);
+		canvas.text(panelLabel, dragBar.realX() + UI_PADDING, dragBar.realYH() - 5); //text draws from the bottom left going up (rather than images that go top left down)
 	}
 
 	String mouse() {
 		if (!isVisible) return "";
+		
+		if (edwin.mouseBtnBeginHold == LEFT && dragBar.isMouseOver()) {
+			beingDragged = true;
+			dragOffset.set(mouseX - body.x, mouseY - body.y);
+			return "begin drag";
+		}
 
 		if (beingDragged) {
 			body.set(mouseX - dragOffset.x, mouseY - dragOffset.y);
@@ -993,12 +1056,6 @@ class DraggableWindow implements Kid {
 				return "end drag";
 			}
 			return "dragging";
-		}
-		
-		if (edwin.mouseBtnBeginHold == LEFT && dragBar.isMouseOver()) {
-			beingDragged = true;
-			dragOffset.set(mouseX - body.x, mouseY - body.y);
-			return "begin drag";
 		}
 
 		return "";
@@ -1017,14 +1074,14 @@ class DraggableWindow implements Kid {
 
 /**
 * A floating draggable window you put GridButtons + labels on.
-* Make sure to override the Command object's execute() that you use in addItem
-* to handle the menu click when you create one of these 
+* Use addItem() to insert a menu line and make sure to 
+* override the Command object's execute() to handle the menu click
 */
 class GadgetPanel extends DraggableWindow {
 	ArrayList<PanelItem> panelItems; //each of these has a GridButtons
 	Album buttonAlbum;
 	String title;
-	int TX_OFFSET = 9;
+	final int TX_OFFSET = 9;
 	//constants for the Album's pages
 	public static final String BUTTON_FILENAME = "basicButtons.alb",
 	BLANK = "blank",
@@ -1054,7 +1111,6 @@ class GadgetPanel extends DraggableWindow {
 	GadgetPanel(float _x, float _y, String label, Album album) {
 		super(_x, _y);
 		buttonAlbum = album;
-		//TX_OFFSET *= album.scale; //rough placement for text
 		panelLabel = title = label; //displayed in dragBar
 		panelItems = new ArrayList<PanelItem>();
 		body.h += UI_PADDING;
@@ -1075,6 +1131,9 @@ class GadgetPanel extends DraggableWindow {
 		body.h += buttons.body.h;
 	}
 
+	/**
+	* Mainly for toggling buttons to their alt state
+	*/
 	GridButtons getButtons(String label) {
 		for (PanelItem item : panelItems) {
 			if (item.label.equals(label)) {
@@ -1085,6 +1144,10 @@ class GadgetPanel extends DraggableWindow {
 		return null;
 	}
 
+	/**
+	* Can be called at will from any class that has a GadgetPanel of their own.
+	* This lets you execute the code in the Command object with your own argument
+	*/
 	void itemExecute(String label, String arg) {
 		for (PanelItem item : panelItems) {
 			if (item.label.equals(label)) {
@@ -1110,17 +1173,13 @@ class GadgetPanel extends DraggableWindow {
 
 	String mouse() {
 		if (!isVisible) return "";
-		String windowResponse = super.mouse();
-		if (windowResponse != "") return windowResponse;
+		if (super.mouse() != "") return "dragging";
 
 		if (edwin.mouseBtnReleased == LEFT && body.isMouseOver()) {
 			for (PanelItem item : panelItems) {
 				String buttonPage = item.buttons.mouse();
 				if (buttonPage != "") {
-					//buttonClick(item, buttonPage);
 					item.command.execute(buttonPage);
-					//beware - if you use the same button (page) multiple times in the same panel then just checking mouse() won't be able to tell you which one was clicked.
-					//I think it's best to handle clicks by overriding buttonClick() rather than using the GadgetPanel's mouse() function
 					return buttonPage;
 				}
 			}
@@ -1154,13 +1213,13 @@ class GadgetPanel extends DraggableWindow {
 * Restricting to a color palette helps me design stuff
 * so I made this color picker
 */
-class PalettePicker extends DraggableWindow {
+public class PalettePicker extends DraggableWindow {
 	ArrayList<Integer> colors;
 	GridButtons buttons;
 	BoundedInt selectedColor;
 	XY squareCoord;
+	String openFilepath;
 	final int SIDE = 24, COLUMN_COUNT = 5;
-	public static final String SELECTED = "selected:";
 	PalettePicker() { this(new int[] { 0 }); }
 	PalettePicker(int[] paletteColors) { this(paletteColors, "Color Palette", true); }
 	PalettePicker(int[] paletteColors, String title) { this(paletteColors, title, true); }
@@ -1171,12 +1230,16 @@ class PalettePicker extends DraggableWindow {
 		body.setSize(SIDE * COLUMN_COUNT + UI_PADDING * 2, SIDE * 2 + dragBar.h + UI_PADDING * 4);
 		dragBar.setSize(body.w - UI_PADDING * 2, dragBar.h);
 		buttons = new GridButtons(body, UI_PADDING + SIDE, UI_PADDING * 2 + dragBar.h, 5, 
-			new Album(GadgetPanel.BUTTON_FILENAME), new String[] { GadgetPanel.START_LIGHT, GadgetPanel.PLUS, GadgetPanel.BLANK });
+			new Album(GadgetPanel.BUTTON_FILENAME), new String[] { GadgetPanel.START_LIGHT, GadgetPanel.PLUS, GadgetPanel.ARROW_S, GadgetPanel.OPEN });
 		squareCoord = new XY();
 		isVisible = visible;
 		panelLabel = title;
+		openFilepath = null;
 		resetColors(paletteColors);
 	}
+
+	void colorSelected(int paletteIndex) { }
+	void colorEdited(int paletteIndex) { }
 
 	void resetColors(int[] paletteColors) {
 		colors.clear();
@@ -1184,19 +1247,21 @@ class PalettePicker extends DraggableWindow {
 		for (int i = 0; i < paletteColors.length; i++) {
 			colors.add(paletteColors[i]);
 			selectedColor.incrementMax();
+			colorEdited(i);
 		}
-		body.h = UI_PADDING * 4 + dragBar.h + SIDE * (ceil(selectedColor.maximum / (float)COLUMN_COUNT) + 1);
+		body.h = UI_PADDING * 4 + dragBar.h + buttons.body.h + SIDE * ceil(colors.size() / (float)COLUMN_COUNT);
 	}
 
 	void drawSelf(PGraphics canvas) {
 		if (!isVisible) return;
+		if (openFilepath != null) digestFile();
 		super.drawSelf(canvas);
 		canvas.pushMatrix();
 		canvas.translate(body.x, body.y);
 		canvas.noStroke();
 		//menu
 		buttons.drawSelf(canvas);
-		//bgd intended to show contrast when your palette color is transparent
+		//square intended to show contrast when your palette color is transparent
 		canvas.fill(0);
 		canvas.rect(buttons.body.x - SIDE, buttons.body.y, SIDE, SIDE);
 		canvas.fill(255);
@@ -1215,8 +1280,7 @@ class PalettePicker extends DraggableWindow {
 	}
 
 	String mouse() {
-		String windowResponse = super.mouse();
-		if (windowResponse != "") return windowResponse;
+		if (super.mouse() != "") return "dragging";
 
 		if (!isVisible || edwin.mouseBtnReleased != LEFT || !body.isMouseOver()) return "";
 
@@ -1225,7 +1289,8 @@ class PalettePicker extends DraggableWindow {
 			Color picked = JColorChooser.showDialog(null, "Edit color", new Color(colors.get(selectedColor.value)));
 			if (picked == null) return "";
 			colors.set(selectedColor.value, picked.getRGB());
-			return "color edit:" + selectedColor.value;
+			colorEdited(selectedColor.value);
+			return "color edited";
 		}
 		else if (button == GadgetPanel.PLUS) {
 			Color picked = JColorChooser.showDialog(null, "Pick new color", Color.BLACK);
@@ -1239,21 +1304,59 @@ class PalettePicker extends DraggableWindow {
 			}
 			return "new color";
 		}
-		else if (button == GadgetPanel.BLANK) {
-			isVisible = false;
-			return "hide";
+		else if (button == GadgetPanel.OPEN) {
+			selectInput("Open color palette from file (.alb, .lzr, .pw, .plt)", "openFile", null, this);
+			return "open";
+		}
+		else if (button == GadgetPanel.ARROW_S) {
+			String newPalette = JOptionPane.showInputDialog("Enter hex values of new color palette", "");
+			if (newPalette == null) return "";
+			try {
+				String[] hexValues = newPalette.replaceAll("\\r", " ").replaceAll("\\n", " ").replaceAll("\\t", " ").replaceAll(" ", ",").split(",");
+				int[] newColors = new int[hexValues.length];
+				int index = 0;
+				for (int i = 0; i < hexValues.length; i++) {
+					if (hexValues[i].replace("#", "").trim().length() != 6) continue;
+					String col = hexValues[i].replace("#", "").trim();
+					newColors[index++] = Color.decode("#" + col).getRGB();
+				}
+				if (index > 0) resetColors(Arrays.copyOf(newColors, index));
+			}
+			catch (Exception e) {
+				JOptionPane.showMessageDialog(null, "Palette could not be read", "Hey", JOptionPane.ERROR_MESSAGE);
+			}
+			return "new palette from hex";
 		}
 
 		//translate mouse position into palette index
-		int yIndex = (int)((mouseY - (body.y + UI_PADDING * 3 + SIDE * 2)) / SIDE);
+		int yIndex = (int)((mouseY - (body.y + dragBar.h + SIDE + UI_PADDING * 3)) / SIDE);
 		int xIndex = (int)((mouseX - (body.x + UI_PADDING)) / SIDE);
 		int index = yIndex * COLUMN_COUNT + xIndex;
 		if (index >= 0 && index < colors.size()) {
 			selectedColor.set(index);
-			return SELECTED + selectedColor.value; //this is how you'd find out what color was selected from another class
+			colorSelected(selectedColor.value);
+			return "color selected";
 		}
 
 		return "";
+	}
+
+	void openFile(File file) {
+		if (file == null) return; //user hit cancel or closed
+		openFilepath = file.getAbsolutePath();
+	}
+
+	void digestFile() {
+		try {
+			JSONObject json = loadJSONObject(openFilepath);
+			resetColors(json.getJSONArray(EdFiles.COLOR_PALETTE).getIntArray());
+		}
+		catch (Exception e) {
+			JOptionPane.showMessageDialog(null, "Palette could not be read", "Hey", JOptionPane.ERROR_MESSAGE);
+		}
+		finally {
+			openFilepath = null;
+		}
 	}
 
 	String keyboard(KeyEvent event) {
@@ -1288,9 +1391,9 @@ public class ReferenceImagePositioner implements Kid {
 	IS_VISIBLE = "visible";
 
 	ReferenceImagePositioner() { this(""); }
-	ReferenceImagePositioner(String imagePath) {
+	ReferenceImagePositioner(String imageFilename) {
 		body = new RectBody();
-		scale = new BoundedInt(10, 200, 100, 10);
+		scale = new BoundedInt(10, 500, 100, 10);
 		refImage = null;
 		imageFile = null;
 		imageVisible = false;
@@ -1333,9 +1436,8 @@ public class ReferenceImagePositioner implements Kid {
 			}
 		});
 		
-		if (imagePath != "") {
-			imageVisible = true;
-			openFile(new File("C:\\code\\Processing\\EdwinGerm\\data\\", imagePath));
+		if (imageFilename != "") {
+			openFile(imageFilename);
 		}
 	}
 
@@ -1349,10 +1451,10 @@ public class ReferenceImagePositioner implements Kid {
 		if (gPanel.mouse() != "") {
 			return getName();
 		}
-		else if (edwin.mouseBtnHeld == CENTER) {
-			body.set(mouseX, mouseY);
-			setGPLabel();
-		}
+		// else if (edwin.mouseBtnHeld == CENTER) {
+		// 	body.set(mouseX, mouseY);
+		// 	setGPLabel();
+		// }
 		return "";
 	}
 
@@ -1369,25 +1471,28 @@ public class ReferenceImagePositioner implements Kid {
 		else if (!gPanel.isVisible) {
 			return "";
 		}
-		else if (kc == Keycodes.VK_LEFT) {
-			body.x--;
-			setGPLabel();
-		}
-		else if (kc == Keycodes.VK_RIGHT) {
-			body.x++;
-			setGPLabel();
-		}
-		else if (kc == Keycodes.VK_UP) {
-			body.y--;
-			setGPLabel();
-		}
-		else if (kc == Keycodes.VK_DOWN) {
-			body.y++;
-			setGPLabel();
-		}
+		// else if (event.isShiftDown()) {
+		// 	if (kc == Keycodes.VK_LEFT) {
+		// 		body.x--;
+		// 		setGPLabel();
+		// 	}
+		// 	else if (kc == Keycodes.VK_RIGHT) {
+		// 		body.x++;
+		// 		setGPLabel();
+		// 	}
+		// 	else if (kc == Keycodes.VK_UP) {
+		// 		body.y--;
+		// 		setGPLabel();
+		// 	}
+		// 	else if (kc == Keycodes.VK_DOWN) {
+		// 		body.y++;
+		// 		setGPLabel();
+		// 	}
+		// }
 		return "";
 	}
 
+	void openFile(String imageFilename) { openFile(new File("C:\\code\\Processing\\EdwinGerm\\data\\", imageFilename));  } //TODO relative path
 	void openFile(File file) {
 		if (file == null) return; //user hit cancel or closed
 		imageFile = file;
@@ -1414,10 +1519,8 @@ public class ReferenceImagePositioner implements Kid {
 * Each page is a subset of the pixel layers in the Album, and each pixel layer can be in many pages. 
 * This lets you easily make changes that cascade to all pages that use (some of) the same layers. 
 * And restricting colors to a palette allows you change it for all sprites/pages at once. 
-* The UI is kinda tricky right now though...The only way to see the pages menu is to hit X on your keyboard to toggle.
-* You can use up/down to move between layers or pages, depending on which list is shown.
-* When choosing a color from the palette a quick click will use the color, 
-* while a long click lets you choose a new color in that slot.
+* You can use up/down to move between layers or pages depending on which list is shown
+* and pressing control + up/down lets you reorder list items
 */
 public class EditorWindow extends DraggableWindow {
 	ArrayList<PixelLayer> pixelLayers;
@@ -1431,14 +1534,15 @@ public class EditorWindow extends DraggableWindow {
 	BoundedInt brushSize, zoomLevel; 
 	BoundedFloat previewZoomLevel;
 	String currentBrush, openFilepath;
-	boolean showPages;
-	int spriteW, spriteH, maxColors;
+	boolean showPages, showGrid;
+	int spriteW, spriteH;
 	final int LIH = 10; //list item height - height of layer list items, and width of its buttons
 
 	//here I'm hardcoding page names from the albums
 	//so don't rename the pages if you edit the buttons
-	public static final String TOOL_MENU_FILENAME = "editorButtons.alb",
+	public static final String WINDOW_LABEL = "EditorWindow ~ ",
 	//main editor menu buttons
+	TOOL_MENU_FILENAME = "editorButtons.alb",
 	BLANK = "blank",
 	BRUSH = "brush", 
 	LINE = "line",
@@ -1454,6 +1558,7 @@ public class EditorWindow extends DraggableWindow {
 	PALETTE_PICKER = "palettePicker",
 	SET_SIZE = "setSize",
 	LIST_TOGGLE = "listToggle",
+	GRID_TOGGLE = "gridToggle",
 	//layer list item buttons
 	LAYER_MENU_FILENAME = "layerButtons.alb",
 	DELETE = "delete",
@@ -1461,15 +1566,15 @@ public class EditorWindow extends DraggableWindow {
 	IS_NOT_VISIBLE = "isNotVisible",
 	MOVE_DOWN = "moveDown",
 	EDIT_COLOR = "editColor",
-	EDIT_NAME = "editName",
-	EDIT_EXPRESSIONS = "editExpressions"; //"Albums with Pages" used be to called "Symbols with Expressions"
+	EDIT_NAME = "editName"; 
+	//"Albums with Pages" used be to "Symbols with Expressions"
 
 	EditorWindow() {
 		super(); //initialize DraggableWindow stuff
-		int margin = 50; //optional, can be 0 to take up the whole screen
+		int margin = 20; //optional, can be 0 to take up the whole screen
 		body.set(margin, margin, max(width - margin * 2, 600), max(height - margin * 2, 400));
 		dragBar.w = body.w - UI_PADDING * 2;
-		panelLabel = "EditorWindow ~";
+		panelLabel = WINDOW_LABEL;
 		zoomLevel = new BoundedInt(1, 30, 6);
 		previewZoomLevel = new BoundedFloat(0.5, 4, 1, 0.5);
 		brushSize = new BoundedInt(1, 20, 3);
@@ -1477,31 +1582,36 @@ public class EditorWindow extends DraggableWindow {
 		Album brushMenuAlbum = new Album(TOOL_MENU_FILENAME);
 		int menuColumns = 4; //can be changed but this seems best
 		int menuW = menuColumns * (int)brushMenuAlbum.w;
-		maxColors = (menuW / LIH); //not great design... this limits the number of colors in the palette to the width of toolMenu
 		XY ui = new XY(dragBar.x, dragBar.yh() + UI_PADDING); //anchor for current UI body
-		editBounds = new NestedRectBody(body, ui.x + menuW + UI_PADDING, ui.y, body.w - menuW - UI_PADDING * 3, body.h - dragBar.h - UI_PADDING * 3);
 		previewBounds = new NestedRectBody(body, ui.x, ui.y, menuW, menuW);
+		editBounds = new NestedRectBody(body, ui.x + menuW + UI_PADDING, ui.y, body.w - menuW - UI_PADDING * 3, body.h - dragBar.h - UI_PADDING * 3);
 		ui.y += previewBounds.h + UI_PADDING;
 		toolMenu = new GridButtons(body, ui.x, ui.y, menuColumns, brushMenuAlbum, new String[] {
 			BRUSH, LINE, BRUSH_SMALLER, BRUSH_BIGGER,
 			RECTANGLE, PERIMETER, ZOOM_OUT, ZOOM_IN,
-			PALETTE_PICKER, SET_SIZE, BLANK, BLANK,
+			PALETTE_PICKER, SET_SIZE, GRID_TOGGLE, BLANK,
 			OPEN, SAVE, LIST_TOGGLE, ADD_LAYER
 		});
 		ui.y += toolMenu.body.h + UI_PADDING + LIH; //LIH here for the utility layer
 		layerListBounds = new NestedRectBody(body, ui.x, ui.y, menuW, body.h - ui.y - UI_PADDING);
 		pixelLayers = new ArrayList<PixelLayer>();
-		utilityLayer = new PixelLayer(-1, 0, new BitSet(spriteW * spriteH), new String[] { EDIT_COLOR, IS_VISIBLE });
+		utilityLayer = new PixelLayer(-1, 0, new BitSet(spriteW * spriteH), new String[] { IS_VISIBLE, EDIT_COLOR });
 		editablePages = new ArrayList<EditablePage>();
 		selectedPage = new EditablePage(0, "first page", new int[] { 0 });
 		editablePages.add(selectedPage);
-		palette = new PalettePicker(new int[] { #FFFFFF, #000000 }, "Album colors", false);
+		selectedLayer = new PixelLayer(0, 0, null);
+		palette = new PalettePicker(new int[] { #FFFFFF, #000000 }, "Album colors", false) {
+			void colorSelected(int paletteIndex) {
+				selectedLayer.paletteIndex = paletteIndex;
+			}
+		};
 		spriteW = 24;
 		spriteH = 24;
 		currentBrush = BRUSH;
 		showPages = false;
+		showGrid = true;
 		openFilepath = null; //stays null until a new file is opened, at which point it will be loaded the next time drawSelf() is called
-		addPixelLayer();
+		addPixelLayer(); 
 	}
 
 	void addPixelLayer() { addPixelLayer(new BitSet(spriteW * spriteH), 1); }
@@ -1600,16 +1710,16 @@ public class EditorWindow extends DraggableWindow {
 		}
 
 		//pixel grid lines
-		if (zoomLevel.value >= 6) {
+		if (showGrid && zoomLevel.value >= 6) {
 			XY gridPt0 = new XY();
 			XY gridPt1 = new XY();
 			//vertical lines
 			gridPt0.x = editBounds.x;
 			gridPt1.x = editBounds.insideX(editBounds.x + spriteW * zoomLevel.value);
 			for (int _y = 1; _y < spriteH; _y++) {
-				if (_y % 10 == 0) canvas.stroke(50, 200);
+				if (_y % 10 == 0) canvas.stroke(EdColors.UI_EMPHASIS, 200);
 				else if (zoomLevel.value < 12) continue;
-				else canvas.stroke(120, 100);
+				else canvas.stroke(EdColors.UI_DARK, 100);
 				gridPt0.y = gridPt1.y = editBounds.insideY(editBounds.y + _y * zoomLevel.value);
 				canvas.line(gridPt0.x, gridPt0.y, gridPt1.x, gridPt1.y);
 			}
@@ -1617,9 +1727,9 @@ public class EditorWindow extends DraggableWindow {
 			gridPt0.y = editBounds.y;
 			gridPt1.y = editBounds.insideY(editBounds.y + spriteH * zoomLevel.value);
 			for (int _x = 1; _x < spriteW; _x++) {
-				if (_x % 10 == 0) canvas.stroke(50, 200);
+				if (_x % 10 == 0) canvas.stroke(EdColors.UI_EMPHASIS, 200);
 				else if (zoomLevel.value < 12) continue;
-				else canvas.stroke(120, 100);
+				else canvas.stroke(EdColors.UI_DARK, 100);
 				gridPt0.x = gridPt1.x = editBounds.insideX(editBounds.x + _x * zoomLevel.value);
 				canvas.line(gridPt0.x, gridPt0.y, gridPt1.x, gridPt1.y);
 			}
@@ -1631,18 +1741,25 @@ public class EditorWindow extends DraggableWindow {
 			int selectedPageIndex = editablePages.indexOf(selectedPage);
 			for (int i = 0; i < editablePages.size(); i++) {
 				canvas.fill((i % 2 == 0) ? EdColors.ROW_EVEN : EdColors.ROW_ODD);
-				//canvas.rect(layerListBounds.x, layerListBounds.y + LIH * i, layerListBounds.w, LIH);
 				canvas.rect(
-					((selectedPageIndex == i) ? layerListBounds.x - UI_PADDING : layerListBounds.x), 
+					layerListBounds.x, 
 					layerListBounds.y + (LIH * i), 
-					((selectedPageIndex == i) ? layerListBounds.w + UI_PADDING * 2 : layerListBounds.w), 
+					layerListBounds.w, 
 					LIH);
+				//if this is the selected item, display its name
+				if (i == selectedPageIndex || editablePages.get(i).listBody.isMouseOver()) {
+					canvas.rect(
+						layerListBounds.x - UI_PADDING,
+						layerListBounds.y + (LIH * i), 
+						layerListBounds.w + UI_PADDING * 2, 
+						LIH);
+				}
 				listLabel(canvas, editablePages.get(i).name, i);
 				editablePages.get(i).buttons.drawSelf(canvas);
 			}
 		}
 		else {
-			//layer list items
+			int selectedLayerIndex = pixelLayers.indexOf(selectedLayer);
 			for (int i = 0; i < pixelLayers.size(); i++) {
 				canvas.fill(colr(i));
 				canvas.rect(
@@ -1650,8 +1767,8 @@ public class EditorWindow extends DraggableWindow {
 					layerListBounds.y + (LIH * i), 
 					layerListBounds.w, 
 					LIH);
-				//if this is the selected layer, display its name
-				if (i == pixelLayers.indexOf(selectedLayer) || pixelLayers.get(i).listBody.isMouseOver()) {
+				//if this is the selected item, display its name
+				if (i == selectedLayerIndex || pixelLayers.get(i).listBody.isMouseOver()) {
 					canvas.rect(
 						layerListBounds.x - UI_PADDING,
 						layerListBounds.y + (LIH * i), 
@@ -1680,16 +1797,8 @@ public class EditorWindow extends DraggableWindow {
 
 	String mouse() {
 		if (!isVisible) return "";
-		String windowResponse = palette.mouse();
-		if (windowResponse == "") {
-			windowResponse = super.mouse();
-		}
-		else if (windowResponse.startsWith(PalettePicker.SELECTED)) {
-			String[] response = windowResponse.split(":");
-			selectedLayer.paletteIndex = Integer.valueOf(response[1]); //assign color from palette picker to selected layer
-		}
-		if (windowResponse != "") {
-			return windowResponse;
+		if (palette.mouse() != "" || super.mouse() != "") {
+			return getName();
 		}
 
 		if (edwin.mouseBtnBeginHold != 0 || edwin.mouseBtnReleased != 0) {
@@ -1782,7 +1891,7 @@ public class EditorWindow extends DraggableWindow {
 						}
 					}
 					int lastIndex = editablePages.size();
-					selectedPage = new EditablePage(lastIndex, newName, new int[] { 0 });
+					selectedPage = new EditablePage(lastIndex, newName, new int[] { });
 					editablePages.add(selectedPage);
 					usePage(lastIndex);
 				}
@@ -1824,6 +1933,17 @@ public class EditorWindow extends DraggableWindow {
 				spriteW = newWidth;
 				spriteH = newHeight;
 				break;
+			case GRID_TOGGLE:
+				showGrid = !showGrid;
+				break;
+			case BLANK:
+				for (int i = selectedLayer.dots.size() - 1; i > 0; i--) {
+					if (selectedLayer.dots.get(i -1)) {
+						selectedLayer.dots.set(i, true);
+						selectedLayer.dots.set(i - 1, false);
+					}
+				}
+				break;
 		}
 		if (buttonPage != "") {
 			return getName();
@@ -1858,14 +1978,14 @@ public class EditorWindow extends DraggableWindow {
 			if (index == -1) {
 				return "";
 			}
-			EditablePage page = editablePages.get(index);
+			usePage(index);
 			switch (buttonPage) {
 				case DELETE:
 					if (editablePages.size() == 1) {
 						JOptionPane.showMessageDialog(null, "Can't delete page when it's the only one", "Hey", JOptionPane.INFORMATION_MESSAGE);
 						break;
 					}
-					int choice = JOptionPane.showConfirmDialog(null, "Really delete page \"" + page.name + "\"?", "Delete Page?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+					int choice = JOptionPane.showConfirmDialog(null, "Really delete page \"" + selectedPage.name + "\"?", "Delete Page?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
 					if (choice != JOptionPane.YES_OPTION) break;
 					editablePages.remove(index);
 					if (index > 0) {
@@ -1874,13 +1994,22 @@ public class EditorWindow extends DraggableWindow {
 							editablePages.get(i).listBody.y -= LIH;
 						}
 					}
-					usePage(0);
+					usePage(min(index, editablePages.size() - 1));
 					break;
 				case EDIT_NAME:
-					String newName = JOptionPane.showInputDialog("Enter new page name", page.name);
-					if (newName != null) {
-						page.name = newName;
+					String newName = JOptionPane.showInputDialog("Enter new page name", selectedPage.name);
+					if (newName == null || newName.equals(selectedPage.name)) return "";
+					//check for duplicate name
+					for (EditablePage page : editablePages) {
+						if (page.name.equals(newName)) {
+							JOptionPane.showMessageDialog(null, "Duplicate name found", "Hey", JOptionPane.ERROR_MESSAGE);
+							return "";
+						}
 					}
+					selectedPage.name = newName;
+					break;
+				case MOVE_DOWN:
+					movePageDown(index);
 					break;
 			}
 			return getName();
@@ -1929,7 +2058,7 @@ public class EditorWindow extends DraggableWindow {
 				if (newName != null) selectedLayer.name = newName;
 				break;
 			case MOVE_DOWN:
-				movePixelLayerDown(index);
+				moveLayerDown(index);
 				break;
 			case IS_VISIBLE:
 			case IS_NOT_VISIBLE:
@@ -1943,7 +2072,10 @@ public class EditorWindow extends DraggableWindow {
 
 	String keyboard(KeyEvent event) {
 		int kc = event.getKeyCode();
-		if (kc == Keycodes.VK_Z) {
+		if (!isVisible && kc != Keycodes.VK_E) {
+			return "";
+		}
+		else if (kc == Keycodes.VK_Z) {
 			zoomLevel.increment();
 		}
 		else if (kc == Keycodes.VK_A) {
@@ -1966,31 +2098,39 @@ public class EditorWindow extends DraggableWindow {
 			selectedPage.setLayerVisibility(pixelLayers.indexOf(selectedLayer), selectedLayer.isVisible);
 		}
 		else if (kc == Keycodes.VK_UP) {
+			int selLayer = pixelLayers.indexOf(selectedLayer);
+			int selPage = editablePages.indexOf(selectedPage);
 			if (showPages) {
-				int selIndex = editablePages.indexOf(selectedPage);
-				if (selIndex > 0) usePage(selIndex - 1);
+				if (event.isControlDown()) {
+					if (selPage > 0) movePageDown(selPage - 1);
+				}
+				else {
+					if (selPage > 0) usePage(selPage - 1);
+				}
 			}
 			else if (event.isControlDown()) {
-				int selIndex = pixelLayers.indexOf(selectedLayer);
-				if (selIndex > 0) movePixelLayerDown(selIndex - 1);
+				if (selLayer > 0) moveLayerDown(selLayer - 1);
 			}
 			else {
-				int selIndex = pixelLayers.indexOf(selectedLayer);
-				if (selIndex > 0) useLayer(selIndex - 1);
+				if (selLayer > 0) useLayer(selLayer - 1);
 			}
 		}
 		else if (kc == Keycodes.VK_DOWN) {
+			int selLayer = pixelLayers.indexOf(selectedLayer);
+			int selPage = editablePages.indexOf(selectedPage);
 			if (showPages) {
-				int selIndex = editablePages.indexOf(selectedPage);
-				if (selIndex < editablePages.size() - 1) usePage(selIndex + 1);
+				if (event.isControlDown()) {
+					if (selPage < editablePages.size() - 1) movePageDown(selPage);
+				}
+				else {
+					if (selPage < editablePages.size() - 1) usePage(selPage + 1);
+				}
 			}
 			else if (event.isControlDown()) {
-				int selIndex = pixelLayers.indexOf(selectedLayer);
-				if (selIndex < pixelLayers.size() - 1) movePixelLayerDown(selIndex);
+				if (selLayer < pixelLayers.size() - 1) moveLayerDown(selLayer);
 			}
 			else {
-				int selIndex = pixelLayers.indexOf(selectedLayer);
-				if (selIndex < pixelLayers.size() - 1) useLayer(selIndex + 1);
+				if (selLayer < pixelLayers.size() - 1) useLayer(selLayer + 1);
 			}
 		}
 		else if (kc == Keycodes.VK_O && event.isControlDown()) {
@@ -2006,29 +2146,12 @@ public class EditorWindow extends DraggableWindow {
 		return getName();
 	}
 
-	void usePage(int index) {
-		selectedPage = editablePages.get(index);
-		//turn all layers off
-		for (int i = 0; i < pixelLayers.size(); i++) {
-			if (pixelLayers.get(i).isVisible) {
-				pixelLayers.get(i).toggleVisibility();
-			}
-		}
-		//turn on layers selectively
-		int selLayer = 0;
-		for (int l : selectedPage.layerIndicies) {
-			pixelLayers.get(l).toggleVisibility();
-			selLayer = l;
-		}
-		useLayer(selLayer);
-	}
-
 	void useLayer(int index) {
 		selectedLayer = pixelLayers.get(index);
 		palette.selectedColor.set(selectedLayer.paletteIndex);
 	}
 
-	void movePixelLayerDown(int index) {
+	void moveLayerDown(int index) {
 		//TODO make cleaner...
 		if (index >= pixelLayers.size() - 1) { //can't move the last layer down
 			return;
@@ -2048,6 +2171,35 @@ public class EditorWindow extends DraggableWindow {
 		}
 	}
 
+	void usePage(int index) {
+		selectedPage = editablePages.get(index);
+		//turn all layers off
+		for (int i = 0; i < pixelLayers.size(); i++) {
+			if (pixelLayers.get(i).isVisible) {
+				pixelLayers.get(i).toggleVisibility();
+			}
+		}
+		//turn on layers selectively
+		int selLayer = 0;
+		for (int l : selectedPage.layerIndicies) {
+			pixelLayers.get(l).toggleVisibility();
+			selLayer = l;
+		}
+		useLayer(selLayer);
+	}
+
+	void movePageDown(int index) {
+		//TODO make cleaner...
+		if (index >= editablePages.size() - 1) { //can't move the last layer down
+			return;
+		}
+		editablePages.get(index).buttons.body.y += LIH; 
+		editablePages.get(index).listBody.y += LIH;
+		editablePages.get(index + 1).buttons.body.y -= LIH;
+		editablePages.get(index + 1).listBody.y -= LIH;
+		Collections.swap(editablePages, index, index + 1);
+	}
+
 	/**
 	* brushVal == true means setting pixels
 	* brushVal == false means removing pixels
@@ -2059,7 +2211,7 @@ public class EditorWindow extends DraggableWindow {
 		XY mouseInitialTranslated = new XY(round(edwin.mouseHoldInitial.x - body.x - editBounds.x) / zoomLevel.value, 
 			round(edwin.mouseHoldInitial.y - body.y - editBounds.y) / zoomLevel.value);
 
-		if (!pixelLayer.isVisible && pixelLayers.indexOf(pixelLayer) != 0) return; //can't draw on layers that aren't visible, except 0 is a special case
+		if (!pixelLayer.isVisible && pixelLayer != utilityLayer) return; //can't draw on layers that aren't visible, except 0 is a special case
 		//if (!pixelLayer.isVisible && pixelLayer != utilityLayer) return; //can't draw on layers that aren't visible, except 0 is a special case
 
 		if (currentBrush == BRUSH) {
@@ -2124,6 +2276,7 @@ public class EditorWindow extends DraggableWindow {
 	
 	void openFile(File file) {
 		if (file == null) return; //user hit cancel or closed
+		panelLabel = WINDOW_LABEL + file.getName();
 		openFilepath = file.getAbsolutePath();
 		//Next time drawSelf() is called it'll call digestAlbum() so we don't screw with variables potentially in use 
 		//since we might be in the middle of drawing at this time. Then openFilepath becomes null.
@@ -2141,10 +2294,11 @@ public class EditorWindow extends DraggableWindow {
 
 		//colors
 		if (json.isNull(EdFiles.BGD_COLOR)) {
-			utilityLayer.isVisible = false;
+			if (utilityLayer.isVisible) utilityLayer.toggleVisibility();
 			utilityLayer.paletteIndex = 0;
 		}
 		else {
+			if (!utilityLayer.isVisible) utilityLayer.toggleVisibility();
 			utilityLayer.paletteIndex = json.getInt(EdFiles.BGD_COLOR);
 		}
 
@@ -2228,7 +2382,6 @@ public class EditorWindow extends DraggableWindow {
 		return "EditorWindow";
 	}
 
-	/** EditorWindow internal class */
 	private class PixelLayer {
 		NestedRectBody listBody;
 		GridButtons buttons;
@@ -2238,7 +2391,7 @@ public class EditorWindow extends DraggableWindow {
 		boolean isVisible;
 
 		PixelLayer(int index, int colorPaletteIndex, BitSet pxls) {
-			this(index, colorPaletteIndex, pxls, new String[] { DELETE, EDIT_NAME, MOVE_DOWN, IS_VISIBLE });
+			this(index, colorPaletteIndex, pxls, new String[] { IS_VISIBLE, MOVE_DOWN, EDIT_NAME, DELETE });
 		}
 
 		PixelLayer(int index, int colorPaletteIndex, BitSet pxls, String[] buttonNames) {
@@ -2259,9 +2412,10 @@ public class EditorWindow extends DraggableWindow {
 				LIH);
 		}
 
+		/** requires that the is_visible page is the first item in the array */
 		void toggleVisibility() {
 			isVisible = !isVisible;
-			buttons.buttonPages[buttons.buttonPages.length - 1] = (isVisible ? IS_VISIBLE : IS_NOT_VISIBLE);
+			buttons.buttonPages[0] = (isVisible ? IS_VISIBLE : IS_NOT_VISIBLE);
 		}
 
 		/**
@@ -2287,24 +2441,21 @@ public class EditorWindow extends DraggableWindow {
 			}
 		}
 
+		/** Create new BitSet for the pixels and copy old dots over */
 		void updateBounds(int _w, int _h) {
 			BitSet newDots = new BitSet(_w * _h);
 			XY point = new XY();
 			for (int i = 0; i < dots.size(); i++) {
-				if (dots.get(i)) {
-					point.y = floor(i / (float)spriteW);
-					point.x = i - (point.y * spriteW);
-					if (point.x >= _w || point.y >= _h) {
-						continue;
-					}
-					newDots.set((int)(point.y * _w + point.x));
-				}
+				if (!dots.get(i)) continue; //if pixel isn't set, skip loop
+				point.y = floor(i / (float)spriteW);
+				point.x = i - (point.y * spriteW);
+				if (point.x >= _w || point.y >= _h) continue;
+				newDots.set((int)(point.y * _w + point.x)); //find new index with the new width
 			}
 			dots = newDots;
 		}
 	}
 
-	/** EditorWindow internal class */
 	private class EditablePage {
 		NestedRectBody listBody;
 		GridButtons buttons;
@@ -2317,7 +2468,7 @@ public class EditorWindow extends DraggableWindow {
 			for (int i = 0; i < layerIds.length; i++) {
 				layerIndicies.add(layerIds[i]);
 			}
-			String[] buttonNames = new String[] { DELETE, EDIT_NAME };
+			String[] buttonNames = new String[] { MOVE_DOWN, EDIT_NAME, DELETE };
 			buttons = new GridButtons(body, 
 				layerListBounds.xw() - layerButtons.w * buttonNames.length, 
 				layerListBounds.y + layerButtons.h * index, 
