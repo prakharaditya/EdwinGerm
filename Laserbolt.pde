@@ -42,10 +42,7 @@ public class LaserboltPositioner implements Kid {
 		lasers = new ArrayList<Laserbolt>();
 		addLaser();
 		palette = new PalettePicker(new int[] { #69D1C5, #3B898C }, "Laserbolt Colors", false) {
-			void colorSelected(int paletteIndex) { 
-
-			}
-
+			void colorSelected(int paletteIndex) { }
 			void colorEdited(int paletteIndex) { 
 				for (Laserbolt laser : lasers) {
 					if (laser.palette0 == paletteIndex) laser.color0 = colors.get(paletteIndex);
@@ -71,9 +68,9 @@ public class LaserboltPositioner implements Kid {
 			}
 		});
 
-		gPanel.addItem("colors", new String[] { GadgetPanel.START_LIGHT, GadgetPanel.ARROW_N, GadgetPanel.ARROW_S }, new Command() {
+		gPanel.addItem("colors", new String[] { GadgetPanel.COLOR_WHEEL, GadgetPanel.ARROW_N, GadgetPanel.ARROW_S }, new Command() {
 			void execute(String arg) {
-				if (arg == GadgetPanel.START_LIGHT) {
+				if (arg == GadgetPanel.COLOR_WHEEL) {
 					palette.isVisible = !palette.isVisible;
 					palette.body.set(mouseX, mouseY);
 				}
@@ -104,7 +101,7 @@ public class LaserboltPositioner implements Kid {
 						selectedLaser = lasers.get(selIndex);
 					}
 				}
-				gPanel.panelLabel = "selected index:" + selIndex;
+				gPanel.windowTitle = "selected index:" + selIndex;
 				gPanel.getButtons(PERFECT_ZZ).setCheck(selectedLaser.perfectZigZag); //set checkboxes of newly selected laser
 				gPanel.getButtons(JOLTS).setCheck(selectedLaser.jolts); //it's a little awkward right now
 				gPanel.getButtons(IS_VISIBLE).setCheck(selectedLaser.isVisible); 
@@ -114,7 +111,7 @@ public class LaserboltPositioner implements Kid {
 		gPanel.addItem("new laser", GadgetPanel.OK, new Command() {
 			void execute(String arg) {
 				addLaser();
-				gPanel.panelLabel = "new laser created"; 
+				gPanel.windowTitle = "new laser created"; 
 				gPanel.getButtons(PERFECT_ZZ).setCheck(true); //set checkboxes to true for the new laser
 				gPanel.getButtons(JOLTS).setCheck(true); 
 				gPanel.getButtons(IS_VISIBLE).setCheck(true); 
@@ -124,13 +121,13 @@ public class LaserboltPositioner implements Kid {
 		gPanel.addItem("clone laser", GadgetPanel.OK, new Command() {
 			void execute(String arg) {
 				cloneLaser();
-				gPanel.panelLabel = "laser cloned"; 
+				gPanel.windowTitle = "laser cloned"; 
 			}
 		});
 
 		gPanel.addItem("delete laser", GadgetPanel.NO, new Command() {
 			void execute(String arg) {
-				gPanel.panelLabel = "not implemented yet";
+				gPanel.windowTitle = "not implemented yet";
 			}
 		});
 
@@ -142,7 +139,7 @@ public class LaserboltPositioner implements Kid {
 				else { //GadgetPanel.PLUS
 					selectedLaser.placeRadius.incrementMin();
 				}
-				gPanel.panelLabel = PLACE_MIN + ":" + selectedLaser.placeRadius.minimum;
+				gPanel.windowTitle = PLACE_MIN + ":" + selectedLaser.placeRadius.minimum;
 				selectedLaser.jolt();
 			}
 		});
@@ -155,7 +152,7 @@ public class LaserboltPositioner implements Kid {
 				else { //GadgetPanel.PLUS
 					selectedLaser.placeRadius.incrementMax();
 				}
-				gPanel.panelLabel = PLACE_MAX + ":" + selectedLaser.placeRadius.maximum;
+				gPanel.windowTitle = PLACE_MAX + ":" + selectedLaser.placeRadius.maximum;
 				selectedLaser.jolt();
 			}
 		});
@@ -168,7 +165,7 @@ public class LaserboltPositioner implements Kid {
 				else { //GadgetPanel.PLUS
 					selectedLaser.placeAngle.incrementMin();
 				}
-				gPanel.panelLabel = PLACE_ANG_MIN + ":" + String.format("%.4f", selectedLaser.placeAngle.minimum);
+				gPanel.windowTitle = PLACE_ANG_MIN + ":" + String.format("%.4f", selectedLaser.placeAngle.minimum);
 				selectedLaser.jolt();
 			}
 		});
@@ -181,7 +178,7 @@ public class LaserboltPositioner implements Kid {
 				else { //GadgetPanel.PLUS
 					selectedLaser.placeAngle.incrementMax();
 				}
-				gPanel.panelLabel = PLACE_ANG_MAX + ":" + String.format("%.4f", selectedLaser.placeAngle.maximum);
+				gPanel.windowTitle = PLACE_ANG_MAX + ":" + String.format("%.4f", selectedLaser.placeAngle.maximum);
 				selectedLaser.jolt();
 			}
 		});
@@ -189,7 +186,7 @@ public class LaserboltPositioner implements Kid {
 		gPanel.addItem(PERFECT_ZZ, GadgetPanel.BLANK, GadgetPanel.BIGX, new Command() {
 			void execute(String arg) {
 				selectedLaser.perfectZigZag = !selectedLaser.perfectZigZag; //toggle
-				gPanel.panelLabel = PERFECT_ZZ + ":" + selectedLaser.perfectZigZag;
+				gPanel.windowTitle = PERFECT_ZZ + ":" + selectedLaser.perfectZigZag;
 				gPanel.getButtons(PERFECT_ZZ).toggleImage();
 				selectedLaser.jolt();
 			}
@@ -199,7 +196,7 @@ public class LaserboltPositioner implements Kid {
 		gPanel.addItem(JOLTS, GadgetPanel.BLANK, GadgetPanel.BIGX, new Command() {
 			void execute(String arg) {
 				selectedLaser.jolts = !selectedLaser.jolts; //toggle
-				gPanel.panelLabel = JOLTS + ":" + selectedLaser.jolts;
+				gPanel.windowTitle = JOLTS + ":" + selectedLaser.jolts;
 				gPanel.getButtons(JOLTS).toggleImage();
 				selectedLaser.jolt();
 			}
@@ -214,7 +211,7 @@ public class LaserboltPositioner implements Kid {
 				else { //GadgetPanel.PLUS
 					selectedLaser.timer.incrementMax(5);
 				}
-				gPanel.panelLabel = TIMER_LIMIT + ":" + selectedLaser.timer.maximum;
+				gPanel.windowTitle = TIMER_LIMIT + ":" + selectedLaser.timer.maximum;
 				selectedLaser.jolt();
 			}
 		});
@@ -227,7 +224,7 @@ public class LaserboltPositioner implements Kid {
 				else { //GadgetPanel.PLUS
 					selectedLaser.segmentLength.increment();
 				}
-				gPanel.panelLabel = SEG_LENGTH + ":" + selectedLaser.segmentLength.value;
+				gPanel.windowTitle = SEG_LENGTH + ":" + selectedLaser.segmentLength.value;
 				selectedLaser.jolt();
 			}
 		});
@@ -240,7 +237,7 @@ public class LaserboltPositioner implements Kid {
 				else { //GadgetPanel.PLUS
 					selectedLaser.thickness.incrementMin();
 				}
-				gPanel.panelLabel = THICK_MIN + ":" + selectedLaser.thickness.minimum;
+				gPanel.windowTitle = THICK_MIN + ":" + selectedLaser.thickness.minimum;
 				selectedLaser.jolt();
 			}
 		});
@@ -253,7 +250,7 @@ public class LaserboltPositioner implements Kid {
 				else { //GadgetPanel.PLUS
 					selectedLaser.thickness.incrementMax();
 				}
-				gPanel.panelLabel = THICK_MAX + ":" + selectedLaser.thickness.maximum;
+				gPanel.windowTitle = THICK_MAX + ":" + selectedLaser.thickness.maximum;
 				selectedLaser.jolt();
 			}
 		});
@@ -266,7 +263,7 @@ public class LaserboltPositioner implements Kid {
 				else { //GadgetPanel.PLUS
 					selectedLaser.powInc.increment();
 				}
-				gPanel.panelLabel = THICK_INC + ":" + selectedLaser.powInc.value;
+				gPanel.windowTitle = THICK_INC + ":" + selectedLaser.powInc.value;
 				selectedLaser.jolt();
 			}
 		});
@@ -279,7 +276,7 @@ public class LaserboltPositioner implements Kid {
 				else { //GadgetPanel.PLUS
 					selectedLaser.powIncInc.increment();
 				}
-				gPanel.panelLabel = THICK_MUL + ":" + String.format("%.2f", selectedLaser.powIncInc.value);
+				gPanel.windowTitle = THICK_MUL + ":" + String.format("%.2f", selectedLaser.powIncInc.value);
 				selectedLaser.jolt();
 			}
 		});
@@ -287,7 +284,7 @@ public class LaserboltPositioner implements Kid {
 		gPanel.addItem(IS_VISIBLE, GadgetPanel.BLANK, GadgetPanel.BIGX, new Command() {
 			void execute(String arg) {
 				selectedLaser.isVisible = !selectedLaser.isVisible; //toggle
-				gPanel.panelLabel = IS_VISIBLE + ":" + selectedLaser.isVisible;
+				gPanel.windowTitle = IS_VISIBLE + ":" + selectedLaser.isVisible;
 				gPanel.getButtons(IS_VISIBLE).toggleImage();
 				selectedLaser.jolt();
 			}
@@ -326,7 +323,7 @@ public class LaserboltPositioner implements Kid {
 		if (!gPanel.isVisible) return "";
 
 		if (palette.mouse() != "" || gPanel.mouse() != "") {
-			selectedLaser.jolt();
+			//selectedLaser.jolt();
 			return getName();
 		}
 		else if (edwin.mouseBtnHeld == LEFT) {

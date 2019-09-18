@@ -139,8 +139,7 @@ class PixelStarBackdrop implements Kid {
 		starCount = numStars;
 		backdrop.beginDraw();
 		backdrop.clear();
-		//backdrop.background(#101024);
-		backdrop.background(#050201);
+		backdrop.background(#070403);
 		int x, y;
 		for (int i = 0; i < numStars; i++) {
 			//make position inline with other star's pixels for when the scale isn't 1.0
