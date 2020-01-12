@@ -100,19 +100,15 @@ class StarBackdrop implements Kid {
 	}
 
 	String keyboard(KeyEvent event) {
-		if (event.getAction() == KeyEvent.RELEASE && event.getKeyCode() == Keycodes.VK_S) { 
+		if (event.getAction() == KeyEvent.RELEASE && event.getKeyCode() == Keycodes.S) { 
 			newStarCount(starCount); //redraw
-			return getName();
+			return HELLO;
 		}
 		return "";
 	}
 
 	String mouse() {
 		return "";
-	}
-
-	String getName() {
-		return "StarBackdrop";
 	}
 }
 
@@ -157,18 +153,14 @@ class PixelStarBackdrop implements Kid {
 	}
 
 	String keyboard(KeyEvent event) {
-		if (event.getAction() == KeyEvent.RELEASE && event.getKeyCode() == Keycodes.VK_S) { 
+		if (event.getAction() == KeyEvent.RELEASE && event.getKeyCode() == Keycodes.S) { 
 			newStarCount(starCount); //redraw
-			return getName();
+			return HELLO;
 		}
 		return "";
 	}
 
 	String mouse() {
 		return "";
-	}
-
-	String getName() {
-		return "StarBackdrop";
 	}
 }

@@ -68,18 +68,18 @@ public class LaserboltPositioner implements Kid {
 			}
 		});
 
-		gPanel.addItem("colors", new String[] { GadgetPanel.COLOR_WHEEL, GadgetPanel.ARROW_N, GadgetPanel.ARROW_S }, new Command() {
+		gPanel.addItem("colors", new String[] { GadgetPanel.COLOR_WHEEL, GadgetPanel.ARROW_N, GadgetPanel.ARROW_E }, new Command() {
 			void execute(String arg) {
 				if (arg == GadgetPanel.COLOR_WHEEL) {
-					palette.isVisible = !palette.isVisible;
+					palette.toggleVisibility();
 					palette.body.set(mouseX, mouseY);
 				}
 				else if (arg == GadgetPanel.ARROW_N) {
-					selectedLaser.color0 = palette.colors.get(palette.selectedColor.value);
+					selectedLaser.color0 = palette.selectedColor();
 					selectedLaser.palette0 = palette.selectedColor.value;
 				}
-				else { // if (arg == GadgetPanel.ARROW_S) {
-					selectedLaser.color1 = palette.colors.get(palette.selectedColor.value);
+				else { // if (arg == GadgetPanel.ARROW_E) {
+					selectedLaser.color1 = palette.selectedColor();
 					selectedLaser.palette1 = palette.selectedColor.value;
 				}
 				selectedLaser.jolt();
@@ -308,7 +308,7 @@ public class LaserboltPositioner implements Kid {
 		//edit anchors
 		if (gPanel.isVisible) {
 			canvas.noStroke();
-			canvas.fill(255, 100);
+			canvas.fill(EdColors.DX_RED, 100);
 			canvas.ellipse(selectedLaser.anchor0.x, selectedLaser.anchor0.y, anchorDiameter, anchorDiameter);
 			canvas.ellipse(selectedLaser.anchor1.x, selectedLaser.anchor1.y, anchorDiameter, anchorDiameter);
 			gPanel.drawSelf(canvas);
@@ -324,7 +324,7 @@ public class LaserboltPositioner implements Kid {
 
 		if (palette.mouse() != "" || gPanel.mouse() != "") {
 			//selectedLaser.jolt();
-			return getName();
+			return HELLO;
 		}
 		else if (edwin.mouseBtnHeld == LEFT) {
 			if (selectedLaser.anchor0.distance(mouseX, mouseY) < anchorDiameter) {
@@ -342,28 +342,28 @@ public class LaserboltPositioner implements Kid {
 			return "";
 		}
 		int kc = event.getKeyCode();
-		if (kc == Keycodes.VK_L) {
+		if (kc == Keycodes.L) {
 			gPanel.toggleVisibility();
-			return getName();
+			return HELLO;
 		}
 		else if (!gPanel.isVisible) {
 			return "";
 		}
-		else if (kc == Keycodes.VK_LEFT) {
+		else if (kc == Keycodes.LEFT) {
 			gPanel.itemExecute("selected", GadgetPanel.ARROW_W);
-			return getName();
+			return HELLO;
 		}
-		else if (kc == Keycodes.VK_RIGHT) {
+		else if (kc == Keycodes.RIGHT) {
 			gPanel.itemExecute("selected", GadgetPanel.ARROW_E);
-			return getName();
+			return HELLO;
 		}
-		else if (kc == Keycodes.VK_1) {
-			selectedLaser.color0 = palette.colors.get(palette.selectedColor.value);
+		else if (kc == Keycodes.ONE) {
+			selectedLaser.color0 = palette.selectedColor();
 			selectedLaser.palette0 = palette.selectedColor.value;
 			selectedLaser.jolt();
 		}
-		else if (kc == Keycodes.VK_2) { 
-			selectedLaser.color1 = palette.colors.get(palette.selectedColor.value);
+		else if (kc == Keycodes.TWO) { 
+			selectedLaser.color1 = palette.selectedColor();
 			selectedLaser.palette1 = palette.selectedColor.value;
 			selectedLaser.jolt();
 		}
@@ -441,10 +441,6 @@ public class LaserboltPositioner implements Kid {
 		fileLines.add("}]"); //close list
 		fileLines.add("}"); //final closing bracket
 		saveStrings(file.getAbsolutePath(), fileLines.toArray(new String[0]));
-	}
-
-	String getName() {
-		return "LaserboltPositioner";
 	}
 }
 
@@ -585,10 +581,6 @@ class Laserbolt implements Kid {
 
 	String keyboard(KeyEvent event) {
 		return "";
-	}
-
-	String getName() {
-		return "Laserbolt";
 	}
 
 	private class LaserPoint {

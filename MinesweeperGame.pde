@@ -98,10 +98,6 @@ class MinesweeperGame implements Kid {
 		}
 	}
 
-	String getName() {
-		return "Minesweeper";
-	}
-
 	void drawSelf(PGraphics canvas) {
 		int x, y, mouseIndex = indexAtMouse();
 		for (int i = 0; i < displayState.length; i++) {
@@ -117,9 +113,9 @@ class MinesweeperGame implements Kid {
 	}
 
 	String keyboard(KeyEvent event) {
-		if (event.getAction() == KeyEvent.RELEASE && event.getKeyCode() == Keycodes.VK_R) { //not case sensitive
+		if (event.getAction() == KeyEvent.RELEASE && event.getKeyCode() == Keycodes.R) { //not case sensitive
 			resetGame();
-			return getName();
+			return HELLO;
 		}
 		return "";
 	}
@@ -158,7 +154,7 @@ class MinesweeperGame implements Kid {
 				if (gameState[clickedIndex] == BOMB) println("BOOM! Press R to reset the game");
 			}
 		}
-		return getName();
+		return HELLO;
 	}
 
 	int indexAtMouse() {

@@ -4,11 +4,12 @@
 *
 * Edwin is a god class that essentially allows you to have layers in Processing.
 * Each "layer" class must implement Kid in order to be compatible with Edwin and 
-* added to Edwin in setup() (or dynamically from your Scheme or whatever) using addKid().
+* added to Edwin in setup() (or dynamically from your Scheme or whatever) using addKid()
 * Each Kid class gets its own draw, mouse, and keyboard functions so you don't have to
 * flood the ones provided by Processing. That means Edwin hijacks mouseMoved() and all like it!
 * To use the editor make sure to include edwin.addKid(new AlbumEditor()); in your setup()
-* Feel free to edit anything and everything in here.
+* When reading my code it may help to know that I often end functions early (if not precondition then leave)
+* Feel free to edit anything and everything in here
 * For a small example project see the comment below the Edwin class
 *
 * Made by mercurus - moonbaseone@hush.com
@@ -17,6 +18,8 @@
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.Map;
+import java.util.HashMap;
 import java.awt.Color;
 import javax.swing.JColorChooser;
 import javax.swing.JOptionPane;
@@ -33,13 +36,13 @@ void mouseWheel(MouseEvent event) { edwin.handleMouse(event); }
 * I started off trying to implement an Entity Component System.
 * So far Components haven't been useful for me so they're gone
 * and I've renamed Entities to Kids, and Systems to Schemes.
-* The rules aren't very fixed - from this base you can go in many directions
+* The mouse/keyboard functions for Kid return a String 
+* so it can communicate backwards to whoever called it. 
+* If your Kid doesn't know what to say use a constant from line ~600
 */
 interface Kid {
-	//void think(); //called before drawSelf()
 	void drawSelf(PGraphics canvas);
-	String getName(); //might not be useful, may remove
-	String mouse(); //returns a String so it can communicate backwards to whoever called it
+	String mouse(); 
 	String keyboard(KeyEvent event);
 }
 
@@ -57,18 +60,22 @@ interface Scheme {
 */
 class Edwin {
 	PGraphics canvas;
-	PFont defaultFont;
+	PFont defaultFont; //not totally necessary
 	ArrayList<Kid> kids, dismissed;
 	ArrayList<Scheme> schemes;
 	//now for some values you might check in your Kid classes
 	XY mouseHoldInitial, mouseLast;
 	int mouseHoldStartMillis, mouseHeldMillis, mouseTickLength, mouseTicking;
 	int mouseBtnBeginHold, mouseBtnHeld, mouseBtnReleased, mouseWheelValue;
-	boolean useSmooth, mouseHoldTicked, mouseHovering, isShiftDown;
+	int bgdColor;
+	boolean useSmooth, mouseHoldTicked, mouseHovering;
+	boolean isShiftDown, isCtrlDown, isAltDown;
 
-	Edwin() {
+	Edwin() { this(EdColors.DX_BLACK); }
+	Edwin(int defaultBgdColor) {
+		bgdColor = defaultBgdColor;
 		canvas = createGraphics(width, height);
-		defaultFont = createFont(EdFiles.DATA_FOLDER + "consolas.ttf", 12); //not necessary to have
+		defaultFont = createFont(EdFiles.DATA_FOLDER + "consolas.ttf", 12);
 		schemes = new ArrayList<Scheme>();
 		kids = new ArrayList<Kid>();
 		dismissed = new ArrayList<Kid>(); //in a Scheme if some Kid needs to leave use edwin.dismiss(kid);
@@ -76,11 +83,11 @@ class Edwin {
 		mouseLast = new XY();
 		mouseHeldMillis = mouseHoldStartMillis = mouseTicking = 0;
 		mouseBtnHeld = mouseBtnBeginHold = mouseBtnReleased = mouseWheelValue = 0;
-		useSmooth = true; //use Processing's built-in smooth() or noSmooth()
 		mouseHovering = false; //true if the mouse event is a plain move
 		mouseHoldTicked = false; //true for one drawSelf() tick every couple ms when you've been holding down a mouse button
-		isShiftDown = false;
 		mouseTickLength = 17; //number of cycles between ticks
+		useSmooth = true; //use Processing's built-in smooth() or noSmooth()
+		isShiftDown = isCtrlDown = isAltDown = false;
 	}
 
 	void addScheme(Scheme scheme) {
@@ -91,7 +98,7 @@ class Edwin {
 		kids.add(kid);
 	}
 
-	/** Use this in Schemes to safely remove Kids */
+	/** Use this to safely remove Kids */
 	void dismiss(Kid kid) {
 		dismissed.add(kid);
 	}
@@ -117,10 +124,9 @@ class Edwin {
 		if (useSmooth) canvas.smooth();
 		else canvas.noSmooth();
 		canvas.beginDraw();
-		canvas.background(EdColors.DEFAULT_BACKGROUND);
+		canvas.background(bgdColor);
 		canvas.textFont(defaultFont);
 		for (Kid kid : kids) {
-			//kid.think();
 			kid.drawSelf(canvas);
 		}
 		canvas.endDraw();
@@ -173,8 +179,9 @@ class Edwin {
 	* so each Kid will get handed the event and let them react
 	*/
 	void handleKeyboard(KeyEvent event) {
-		if (event.isShiftDown()) isShiftDown = true;
-		else isShiftDown = false;
+		isShiftDown = event.isShiftDown();
+		isCtrlDown = event.isControlDown();
+		isAltDown = event.isAltDown();
 		for (Kid kid : kids) {
 			//if (kid.keyboard(event) != "") break; //if any respond we assume it handled the event and we don't need to check others
 			kid.keyboard(event);
@@ -194,8 +201,7 @@ void setup() {
 	edwin = new Edwin();
 
 	String[] buttons = new String[] { AlbumEditor.BRUSH, AlbumEditor.LINE, AlbumEditor.PERIMETER, AlbumEditor.ADD_LAYER, AlbumEditor.ZOOM_OUT };
-	Kid someMenu = new GridButtons(20, 80, 3, new Album(AlbumEditor.TOOL_MENU_FILENAME, 2.0), buttons) {
-		@Override
+	Kid someMenu = new GridButtons(20, 80, 3, new Album(AlbumEditor.BUTTON_FILENAME, 2.0), buttons) {
 		public void buttonClick(String clicked) {
 			aNum += 1;
 			println(clicked + " " + aNum);
@@ -234,10 +240,6 @@ class Simple implements Kid {
 	String keyboard(KeyEvent event) {
 		return "";
 	}
-
-	String getName() {
-		return "Simple";
-	}
 }
 
 ***/
@@ -266,8 +268,8 @@ class XY {
 	float angCos(XY other) { return cos(angle(other)); }
 	float angle(XY other) { return angle(other.x, other.y); }
 	float angle(float _x, float _y) { return atan2(y - _y, x - _x); } //radians
-	XY midpoint(float _x, float _y) { return new XY((x + _x) / 2.0, (y + _y) / 2.0); }
 	XY midpoint(XY other) { return midpoint(other.x, other.y); }
+	XY midpoint(float _x, float _y) { return new XY((x + _x) / 2.0, (y + _y) / 2.0); }
 }
 
 
@@ -365,8 +367,7 @@ class NestedRectBody extends RectBody {
 		super(_x, _y, _w, _h);
 		parent = parentBody;
 	}
-	@Override
-	boolean containsPoint(float _x, float _y) {
+	boolean containsPoint(float _x, float _y) { //override
 		_x -= parent.x;
 		_y -= parent.y;
 		if (_x >= x && _x < xw() &&
@@ -410,7 +411,11 @@ class BoundedInt {
 
 	int increment() { return increment(step); }
 	int increment(int num) {
-		if (value + num > maximum) {
+		if (value + num <= minimum) { //if num is negative and moves value below the min
+			value = minimum;
+			return value;
+		}
+		else if (value + num > maximum) {
 			if (loops) value = minimum;
 			else value = maximum;
 			return value;
@@ -610,30 +615,68 @@ String jsonKVNoComma(String keyName, String value) { return "\"" + keyName + "\"
 
 
 /** Constants */
-final String TAB = "\t";
+final String TAB = "\t",
+	//replacements for getName();
+	HELLO = "HELLO",
+	HI = "HI",
+	YUP = "YUP",
+	YOU_BETCHA = "YOU BETCHA";
 
-class EdColors {
+static class EdColors {
 	//Edwin VanCleef https://media-hearth.cursecdn.com/avatars/331/109/3.png
 	//https://lospec.com/palette-list/dirtyboy
-	public static final int DEFAULT_BACKGROUND = #070403, // #000000
+	public static final int INFO = #5881C1,
 	UI_LIGHT = #C4CFA1, 
 	UI_NORMAL = #8B956D, 
 	UI_DARK = #4D533C,
 	UI_DARKEST = #1F1F1F,
 	UI_EMPHASIS = #73342E,
-	INFO = #5881C1,
 	ROW_EVEN = #080808,
-	ROW_ODD = #303030;
-	/*
-	UI_LIGHT = #FFFFFF, 
-	UI_NORMAL = #AAE0F2, 
-	UI_DARK = #2E6D99,
-	UI_DARKEST = #26241F,
-	*/
+	ROW_ODD = #303030,
+	//https://lospec.com/palette-list/15p-dx
+	DX_RED = #6e3232,
+	DX_ORANGE = #BB5735,
+	DX_YELLOW_ORANGE = #DF9245,
+	DX_YELLOW = #ECD274,
+	DX_YELLOW_GREEN = #83A816,
+	DX_GREEN = #277224,
+	DX_DARK_BLUE = #173B47,
+	DX_BLUE = #046894,
+	DX_AQUAMARINE = #17A1A9,
+	DX_SKY_BLUE = #81DBCD,
+	DX_WHITE = #FDF9F1,
+	DX_SAND = #C7B295,
+	DX_CLAY = #87715B,
+	DX_DIRT = #463731,
+	DX_BROWN = #201708,
+	DX_BLACK = #070403,
+	DX_GREY = #55535A;
+
+	public static final int[] dxPalette() {
+		return new int[] {
+			DX_SAND,
+			DX_CLAY,
+			DX_DIRT,
+			DX_BROWN,
+			DX_BLACK,
+			DX_YELLOW,
+			DX_YELLOW_ORANGE,
+			DX_ORANGE,
+			DX_RED,
+			DX_GREY,
+			DX_WHITE,
+			DX_SKY_BLUE,
+			DX_AQUAMARINE,
+			DX_BLUE,
+			DX_DARK_BLUE,
+			DX_YELLOW_GREEN,
+			DX_GREEN
+		};
+	}
 }
 
 /** JSON keys for Album files */
-class EdFiles {
+static class EdFiles {
 	public static final String DATA_FOLDER = "data\\",
 	BGD_COLOR = "backgroundColor",
 	PX_WIDTH = "width",
@@ -655,117 +698,119 @@ class EdFiles {
 * but also simplified things with their global variables "key" and "keyCode"
 * see https://processing.org/reference/keyCode.html
 */
-class Keycodes {
-	public static final int VK_UNDEFINED = 0,
-	VK_TAB = 9,
-	VK_SHIFT = 16, //probably easier to use event.isShiftDown(), event.isAltDown(), event.isControlDown()
-	VK_CONTROL = 17,
-	VK_ALT = 18,
-	VK_LEFT = 37,
-	VK_UP = 38,
-	VK_RIGHT = 39,
-	VK_DOWN = 40,
-	VK_0 = 48,
-	VK_1 = 49,
-	VK_2 = 50,
-	VK_3 = 51,
-	VK_4 = 52,
-	VK_5 = 53,
-	VK_6 = 54,
-	VK_7 = 55,
-	VK_8 = 56,
-	VK_9 = 57,
-	VK_A = 65,
-	VK_B = 66,
-	VK_C = 67,
-	VK_D = 68,
-	VK_E = 69,
-	VK_F = 70,
-	VK_G = 71,
-	VK_H = 72,
-	VK_I = 73,
-	VK_J = 74,
-	VK_K = 75,
-	VK_L = 76,
-	VK_M = 77,
-	VK_N = 78,
-	VK_O = 79,
-	VK_P = 80,
-	VK_Q = 81,
-	VK_R = 82,
-	VK_S = 83,
-	VK_T = 84,
-	VK_U = 85,
-	VK_V = 86,
-	VK_W = 87,
-	VK_X = 88,
-	VK_Y = 89,
-	VK_Z = 90,
-	VK_NUMPAD0 = 96,
-	VK_NUMPAD1 = 97,
-	VK_NUMPAD2 = 98,
-	VK_NUMPAD3 = 99,
-	VK_NUMPAD4 = 100,
-	VK_NUMPAD5 = 101,
-	VK_NUMPAD6 = 102,
-	VK_NUMPAD7 = 103,
-	VK_NUMPAD8 = 104,
-	VK_NUMPAD9 = 105,
-	VK_F1 = 112,
-	VK_F2 = 113,
-	VK_F3 = 114,
-	VK_F4 = 115,
-	VK_F5 = 116,
-	VK_F6 = 117,
-	VK_F7 = 118,
-	VK_F8 = 119,
-	VK_F9 = 120,
-	VK_F10 = 121,
-	VK_F11 = 122,
-	VK_F12 = 123,
-	VK_PAGE_UP = 33,
-	VK_PAGE_DOWN = 34,
-	VK_END = 35,
-	VK_HOME = 36,
-	VK_DELETE = 127,
-	VK_INSERT = 155,
-	VK_BACK_SPACE = 8,
-	VK_ENTER = 10,
-	VK_ESCAPE = 27,
-	VK_SPACE = 32,
-	VK_CAPS_LOCK = 20,
-	VK_NUM_LOCK = 144,
-	VK_SCROLL_LOCK = 145,
-	VK_AMPERSAND = 150,
-	VK_ASTERISK = 151,
-	VK_BACK_QUOTE = 192,
-	VK_BACK_SLASH = 92,
-	VK_BRACELEFT = 161,
-	VK_BRACERIGHT = 162,
-	VK_CLEAR = 12,
-	VK_CLOSE_BRACKET = 93,
-	VK_COLON = 513,
-	VK_COMMA = 44,
-	VK_CONVERT = 28,
-	VK_DECIMAL = 110,
-	VK_DIVIDE = 111,
-	VK_DOLLAR = 515,
-	VK_EQUALS = 61,
-	VK_SLASH = 47,
-	VK_META = 157,
-	VK_MINUS = 45,
-	VK_MULTIPLY = 106,
-	VK_NUMBER_SIGN = 520,
-	VK_OPEN_BRACKET = 91,	
-	VK_PERIOD = 46,
-	VK_PLUS = 521,	
-	VK_PRINTSCREEN = 154,
-	VK_QUOTE = 222,
-	VK_QUOTEDBL = 152,
-	VK_RIGHT_PARENTHESIS = 522,	
-	VK_SEMICOLON = 59,
-	VK_SEPARATOR = 108,
-	VK_SUBTRACT = 109;
+static class Keycodes {
+	public static final int UNDEFINED = 0,
+	TAB = 9,
+	SHIFT = 16, //probably easier to use event.isShiftDown(), event.isAltDown(), event.isControlDown()
+	CONTROL = 17,
+	ALT = 18,
+	LEFT = 37,
+	UP = 38,
+	RIGHT = 39,
+	DOWN = 40,
+	//top row numbers
+	ZERO = 48,
+	ONE = 49,
+	TWO = 50,
+	THREE = 51,
+	FOUR = 52,
+	FIVE = 53,
+	SIX = 54,
+	SEVEN = 55,
+	EIGHT = 56,
+	NINE = 57,
+	//letters obv
+	A = 65,
+	B = 66,
+	C = 67,
+	D = 68,
+	E = 69,
+	F = 70,
+	G = 71,
+	H = 72,
+	I = 73,
+	J = 74,
+	K = 75,
+	L = 76,
+	M = 77,
+	N = 78,
+	O = 79,
+	P = 80,
+	Q = 81,
+	R = 82,
+	S = 83,
+	T = 84,
+	U = 85,
+	V = 86,
+	W = 87,
+	X = 88,
+	Y = 89,
+	Z = 90,
+	NUMPAD0 = 96,
+	NUMPAD1 = 97,
+	NUMPAD2 = 98,
+	NUMPAD3 = 99,
+	NUMPAD4 = 100,
+	NUMPAD5 = 101,
+	NUMPAD6 = 102,
+	NUMPAD7 = 103,
+	NUMPAD8 = 104,
+	NUMPAD9 = 105,
+	F1 = 112,
+	F2 = 113,
+	F3 = 114,
+	F4 = 115,
+	F5 = 116,
+	F6 = 117,
+	F7 = 118,
+	F8 = 119,
+	F9 = 120,
+	F10 = 121,
+	F11 = 122,
+	F12 = 123,
+	PAGE_UP = 33,
+	PAGE_DOWN = 34,
+	END = 35,
+	HOME = 36,
+	DELETE = 127,
+	INSERT = 155,
+	BACK_SPACE = 8,
+	ENTER = 10,
+	ESCAPE = 27,
+	SPACE = 32,
+	CAPS_LOCK = 20,
+	NUM_LOCK = 144,
+	SCROLL_LOCK = 145,
+	AMPERSAND = 150,
+	ASTERISK = 151,
+	BACK_QUOTE = 192,
+	BACK_SLASH = 92,
+	BRACELEFT = 161,
+	BRACERIGHT = 162,
+	CLEAR = 12,
+	CLOSE_BRACKET = 93,
+	COLON = 513,
+	COMMA = 44,
+	CONVERT = 28,
+	DECIMAL = 110,
+	DIVIDE = 111,
+	DOLLAR = 515,
+	EQUALS = 61,
+	SLASH = 47,
+	META = 157,
+	MINUS = 45,
+	MULTIPLY = 106,
+	NUMBER_SIGN = 520,
+	OPEN_BRACKET = 91,	
+	PERIOD = 46,
+	PLUS = 521,	
+	PRINTSCREEN = 154,
+	QUOTE = 222,
+	QUOTEDBL = 152,
+	RIGHT_PARENTHESIS = 522,	
+	SEMICOLON = 59,
+	SEPARATOR = 108,
+	SUBTRACT = 109;
 }
 
 
@@ -857,6 +902,7 @@ class TextLabel implements Kid {
 
 	//TextLabel(String labelText, float x, float y) { this(labelText, x, y, new RectBody()); }
 	TextLabel(String labelText, float x, float y, RectBody parent) { this(labelText, x, y, parent, null, null, null); }
+	TextLabel(String labelText, float x, float y, RectBody parent, Integer fgd) { this(labelText, x, y, parent, fgd, null, null); }
 	TextLabel(String labelText, float x, float y, RectBody parent, Integer fgd, Integer bgd, Integer border) { 
 		body = new NestedRectBody(parent, x, y, labelText.length() * 7 + PADDING * 2, 18); //7 here is an estimate of how many pixels wide one character is
 		text = labelText;
@@ -886,10 +932,6 @@ class TextLabel implements Kid {
 
 	String keyboard(KeyEvent event) {
 		return "";
-	}
-
-	String getName() {
-		return id;
 	}
 }
 
@@ -966,10 +1008,6 @@ class GridButtons implements Kid {
 		int index = (int)(floor(relativeY / buttonAlbum.h) * columns + (relativeX / buttonAlbum.w));
 		return index;
 	}
-
-	String getName() {
-		return "GridButtons";
-	}
 }
 
 
@@ -1010,9 +1048,9 @@ class DraggableWindow implements Kid {
 	XY dragOffset;
 	String windowTitle;
 	boolean isVisible, beingDragged;
-	public static final int UI_PADDING = 5;
+	public static final int UI_PADDING = 5, MINIMUM_SIZE = 40;
 
-	DraggableWindow() { this(random(width - 100), random(height - 100)); }
+	DraggableWindow() { this(round(random(width - 100)), round(random(height - 100))); }
 	DraggableWindow(float _x, float _y) {
 		int baseHeight = 18, baseWidth = 40;
 		body = new RectBody(_x, _y, baseWidth + UI_PADDING * 2, baseHeight + UI_PADDING * 2);
@@ -1037,7 +1075,7 @@ class DraggableWindow implements Kid {
 		canvas.fill(EdColors.UI_DARK);
 		canvas.rect(dragBar.realX(), dragBar.realY(), dragBar.w, dragBar.h);
 		canvas.fill(EdColors.UI_LIGHT);
-		canvas.text(windowTitle, dragBar.realX() + UI_PADDING, dragBar.realYH() - 5); //text draws from the bottom left going up (rather than images/rects that go top left down)
+		canvas.text(windowTitle, dragBar.realX() + UI_PADDING, dragBar.realYH() - UI_PADDING); //text draws from the bottom left going up (rather than images/rects that go top left down)
 	}
 
 	String mouse() {
@@ -1049,6 +1087,8 @@ class DraggableWindow implements Kid {
 		}
 		if (beingDragged) {
 			body.set(mouseX - dragOffset.x, mouseY - dragOffset.y);
+			body.y = max(0, min(body.y, height - MINIMUM_SIZE));
+			body.x = max(MINIMUM_SIZE - body.w, min(body.x, width - MINIMUM_SIZE));
 			if (edwin.mouseBtnReleased == LEFT) {
 				beingDragged = false;
 				return "end drag";
@@ -1060,10 +1100,6 @@ class DraggableWindow implements Kid {
 
 	String keyboard(KeyEvent event) {
 		return "";
-	}
-
-	String getName() {
-		return "SomeDraggableWindow";
 	}
 }
 
@@ -1077,7 +1113,7 @@ class DraggableWindow implements Kid {
 class GadgetPanel extends DraggableWindow {
 	ArrayList<PanelItem> panelItems; //each of these has a GridButtons
 	Album buttonAlbum;
-	final int TX_OFFSET = 9;
+	final int TEXT_OFFSET = 9;
 	//constants for the Album
 	public static final String BUTTON_FILENAME = "basicButtons.alb",
 	BLANK = "blank",
@@ -1095,6 +1131,7 @@ class GadgetPanel extends DraggableWindow {
 	COLOR_WHEEL = "colorWheel",
 	START_LIGHT = "start light",
 	STOP_LIGHT = "stop light",
+	//may remove these
 	OVER_UNDER = "over under",
 	OVER_UNDER_DOWN = "over under down",
 	SIDE_SIDE = "side side",
@@ -1162,8 +1199,8 @@ class GadgetPanel extends DraggableWindow {
 		canvas.translate(body.x, body.y);
 		canvas.fill(EdColors.UI_DARKEST);
 		for (PanelItem item : panelItems) {
-			canvas.text(item.label, item.labelPos.x, item.labelPos.y);
 			item.buttons.drawSelf(canvas);
+			canvas.text(item.label, item.labelPos.x, item.labelPos.y);
 		}
 		canvas.popMatrix();
 	}
@@ -1183,11 +1220,7 @@ class GadgetPanel extends DraggableWindow {
 		return "";
 	}
 
-	String getName() {
-		return "GadgetPanel";
-	}
-
-	class PanelItem {
+	private class PanelItem {
 		Command command;
 		GridButtons buttons;
 		XY labelPos;
@@ -1197,7 +1230,7 @@ class GadgetPanel extends DraggableWindow {
 			label = text;
 			buttons = gridButtons;
 			command = cmd;
-			labelPos = new XY(buttons.body.xw() + UI_PADDING, buttons.body.yh() - TX_OFFSET);
+			labelPos = new XY(buttons.body.xw() + UI_PADDING, buttons.body.yh() - TEXT_OFFSET);
 		}
 	}
 }
@@ -1234,6 +1267,10 @@ public class PalettePicker extends DraggableWindow {
 		resetColors(paletteColors);
 	}
 
+	int selectedColor() {
+		return colors.get(selectedColor.value);
+	}
+
 	/** You can override these *************/
 	void colorSelected(int paletteIndex) { }
 	void colorEdited(int paletteIndex) { }
@@ -1252,7 +1289,6 @@ public class PalettePicker extends DraggableWindow {
 
 	void drawSelf(PGraphics canvas) {
 		if (!isVisible) return;
-		//if (openFilepath != null) digestFile();
 		super.drawSelf(canvas);
 		canvas.pushMatrix();
 		canvas.translate(body.x, body.y);
@@ -1272,7 +1308,12 @@ public class PalettePicker extends DraggableWindow {
 			squareCoord.y = floor(i / (float)COLUMN_COUNT);
 			squareCoord.x = i - (squareCoord.y * COLUMN_COUNT);
 			canvas.fill(colors.get(i));
-			canvas.rect(UI_PADDING + squareCoord.x * SIDE, UI_PADDING * 3 + SIDE + dragBar.h + squareCoord.y * SIDE, SIDE, SIDE);
+			canvas.rect(
+				round(UI_PADDING + squareCoord.x * SIDE), 
+				round(UI_PADDING * 3 + SIDE + dragBar.h + squareCoord.y * SIDE), 
+				SIDE, 
+				SIDE
+			);
 		}
 		canvas.popMatrix();
 	}
@@ -1281,16 +1322,16 @@ public class PalettePicker extends DraggableWindow {
 		if (super.mouse() != "") return "dragging";
 		if (!isVisible || edwin.mouseBtnReleased != LEFT || !body.isMouseOver()) return "";
 
-		String button = buttons.mouse();
-		if (button == GadgetPanel.COLOR_WHEEL) {
+		String clicked = buttons.mouse();
+		if (clicked == GadgetPanel.COLOR_WHEEL) {
 			Color picked = JColorChooser.showDialog(null, "Edit color", new Color(colors.get(selectedColor.value)));
 			if (picked == null) return "";
 			colors.set(selectedColor.value, picked.getRGB());
 			colorEdited(selectedColor.value);
 			return "color edited";
 		}
-		else if (button == GadgetPanel.PLUS) {
-			Color picked = JColorChooser.showDialog(null, "Pick new color", Color.BLACK);
+		else if (clicked == GadgetPanel.PLUS) {
+			Color picked = JColorChooser.showDialog(null, "Add new color", Color.BLACK);
 			if (picked == null) return "";
 			colors.add(picked.getRGB());
 			selectedColor.incrementMax();
@@ -1300,11 +1341,11 @@ public class PalettePicker extends DraggableWindow {
 			}
 			return "new color";
 		}
-		else if (button == GadgetPanel.OPEN) {
+		else if (clicked == GadgetPanel.OPEN) {
 			selectInput("Open color palette from file (.alb, .lzr, .pw)", "openFile", null, this);
 			return "open";
 		}
-		else if (button == GadgetPanel.ARROW_S) {
+		else if (clicked == GadgetPanel.ARROW_S) {
 			String newPalette = JOptionPane.showInputDialog("Enter hex values of new color palette", "");
 			if (newPalette == null) return "";
 			try {
@@ -1355,10 +1396,6 @@ public class PalettePicker extends DraggableWindow {
 		return "";
 	}
 
-	String getName() {
-		return "PalettePicker";
-	}
-
 	String asJsonKV() {
 		return jsonKV(EdFiles.COLOR_PALETTE, colors.toString());
 	}
@@ -1368,11 +1405,13 @@ public class PalettePicker extends DraggableWindow {
 
 /** 
 * Place and scale a reference image for making stuff with other stuff.
-* Use the middle mouse button to drag it around, or arrows keys for 1 pixel movement
+* Use the middle mouse button to drag it around, or arrows keys for 1 pixel movement.
+* Was originally created for my PolycolorWireframe/Polywire/LightLattice
+* Somewhat obsolete now...
 */
 public class ReferenceImagePositioner implements Kid {
 	PImage refImage;
-	File imageFile; //path instead of just String filename
+	File imageFile;
 	RectBody body;
 	BoundedInt scale;
 	GadgetPanel gPanel;
@@ -1441,7 +1480,7 @@ public class ReferenceImagePositioner implements Kid {
 	String mouse() {
 		if (!gPanel.isVisible) return "";
 		if (gPanel.mouse() != "") {
-			return getName();
+			return "gadgetPanel";
 		}
 		// else if (edwin.mouseBtnHeld == CENTER) {
 		// 	body.set(mouseX, mouseY);
@@ -1457,26 +1496,26 @@ public class ReferenceImagePositioner implements Kid {
 			return "";
 		}
 		int kc = event.getKeyCode();
-		if (kc == Keycodes.VK_I) {
+		if (kc == Keycodes.I) {
 			gPanel.toggleVisibility();
 		}
 		else if (!gPanel.isVisible) {
 			return "";
 		}
 		// else if (event.isShiftDown()) {
-		// 	if (kc == Keycodes.VK_LEFT) {
+		// 	if (kc == Keycodes.LEFT) {
 		// 		body.x--;
 		// 		setGPLabel();
 		// 	}
-		// 	else if (kc == Keycodes.VK_RIGHT) {
+		// 	else if (kc == Keycodes.RIGHT) {
 		// 		body.x++;
 		// 		setGPLabel();
 		// 	}
-		// 	else if (kc == Keycodes.VK_UP) {
+		// 	else if (kc == Keycodes.UP) {
 		// 		body.y--;
 		// 		setGPLabel();
 		// 	}
-		// 	else if (kc == Keycodes.VK_DOWN) {
+		// 	else if (kc == Keycodes.DOWN) {
 		// 		body.y++;
 		// 		setGPLabel();
 		// 	}
@@ -1496,10 +1535,6 @@ public class ReferenceImagePositioner implements Kid {
 		imageVisible = true;
 		gPanel.windowTitle = imageFile.getName();
 		gPanel.getButtons(IS_VISIBLE).setCheck(true);
-	}
-
-	String getName() {
-		return "ReferenceImagePositioner";
 	}
 }
 
@@ -1537,7 +1572,7 @@ public class AlbumEditor extends DraggableWindow {
 	//so don't rename the pages if you edit the buttons
 	public static final String WINDOW_TITLE = "Album Editor ~ ",
 	//main editor menu buttons
-	TOOL_MENU_FILENAME = "editorButtons.alb",
+	BUTTON_FILENAME = "editorButtons.alb",
 	BLANK = "blank",
 	BRUSH = "brush", 
 	LINE = "line",
@@ -1555,7 +1590,7 @@ public class AlbumEditor extends DraggableWindow {
 	LIST_TOGGLE = "listToggle",
 	GRID_TOGGLE = "gridToggle",
 	//layer list item buttons
-	LAYER_MENU_FILENAME = "layerButtons.alb",
+	LAYER_BUTTON_FILENAME = "layerButtons.alb",
 	DELETE = "delete",
 	IS_VISIBLE = "isVisible",
 	IS_NOT_VISIBLE = "isNotVisible",
@@ -1564,18 +1599,23 @@ public class AlbumEditor extends DraggableWindow {
 	EDIT_NAME = "editName";
 
 	AlbumEditor() { this(true); }
-	AlbumEditor(boolean initiallyVisible) { 
+	AlbumEditor(boolean initiallyVisible) {
 		super(); //initialize DraggableWindow stuff
 		isVisible = initiallyVisible;
 		int margin = 30; //optional, can be 0 to take up the whole screen
 		body.set(margin, margin, max(width - margin * 2, 600), max(height - margin * 2, 400));
 		dragBar.w = body.w - UI_PADDING * 2;
 		setWindowTitle("");
+		spriteW = spriteH = 50;
+		currentBrush = BRUSH;
+		showPages = false;
+		showGrid = true;
+		openFilepath = null; //stays null until a new file is opened, at which point it will be loaded the next time drawSelf() is called
 		zoomLevel = new BoundedInt(1, 30, 6);
 		previewZoomLevel = new BoundedFloat(0.5, 4, 1, 0.5);
 		brushSize = new BoundedInt(1, 20, 3);
-		layerButtonAlbum = new Album(LAYER_MENU_FILENAME);
-		Album brushMenuAlbum = new Album(TOOL_MENU_FILENAME);
+		layerButtonAlbum = new Album(LAYER_BUTTON_FILENAME);
+		Album brushMenuAlbum = new Album(BUTTON_FILENAME);
 		int menuColumns = 4; //can be changed but 4 seems best
 		int menuW = menuColumns * (int)brushMenuAlbum.w;
 		XY ui = new XY(dragBar.x, dragBar.yh() + UI_PADDING); //anchor for current UI body
@@ -1601,15 +1641,10 @@ public class AlbumEditor extends DraggableWindow {
 				selectedLayer.paletteIndex = paletteIndex;
 			}
 		};
-		spriteW = spriteH = 50;
-		currentBrush = BRUSH;
-		showPages = false;
-		showGrid = true;
-		openFilepath = null; //stays null until a new file is opened, at which point it will be loaded the next time drawSelf() is called
 		addPixelLayer(); 
 	}
 
-	void setWindowTitle(String text) {
+	void setWindowTitle(String text) { //TODO use more liberally to give feedback
 		windowTitle = WINDOW_TITLE + text;
 	}
 
@@ -1794,7 +1829,7 @@ public class AlbumEditor extends DraggableWindow {
 	String mouse() {
 		if (!isVisible) return "";
 		if (palette.mouse() != "" || super.mouse() != "") { //if the palette handles the event, or the window is being dragged
-			return getName();
+			return HELLO;
 		}
 
 		if (edwin.mouseBtnBeginHold != 0 || edwin.mouseBtnReleased != 0) {
@@ -1829,7 +1864,7 @@ public class AlbumEditor extends DraggableWindow {
 			else if (edwin.mouseBtnHeld == LEFT || edwin.mouseBtnHeld == RIGHT) {
 				switch (currentBrush) {
 					case BRUSH:
-						applyBrush(selectedLayer, (edwin.mouseBtnHeld == LEFT)); //  ? true : false
+						applyBrush(selectedLayer, (edwin.mouseBtnHeld == LEFT)); // ? true : false
 						break;
 					case LINE:
 					case RECTANGLE:
@@ -1849,7 +1884,7 @@ public class AlbumEditor extends DraggableWindow {
 						break;
 				}
 			}
-			return getName(); //?
+			return HELLO; //?
 		}
 		else if (edwin.mouseBtnReleased != LEFT) {
 			utilityLayer.dots.clear(); //clear brush preview
@@ -1944,7 +1979,7 @@ public class AlbumEditor extends DraggableWindow {
 				break;
 		}
 		if (buttonPage != "") {
-			return getName();
+			return HELLO;
 		}
 
 		buttonPage = utilityLayer.buttons.mouse();
@@ -2010,7 +2045,7 @@ public class AlbumEditor extends DraggableWindow {
 					movePageDown(index);
 					break;
 			}
-			return getName();
+			return HELLO;
 		}
 		//else: layer list items are visible and that area was clicked
 
@@ -2064,38 +2099,38 @@ public class AlbumEditor extends DraggableWindow {
 				selectedPage.setLayerVisibility(index, selectedLayer.isVisible);
 				break;
 		}
-		return getName();
+		return HELLO;
 	} // end mouse() ==========================================================================================================================================
 	// ========================================================================================================================================================
 
 	String keyboard(KeyEvent event) {
 		int kc = event.getKeyCode();
-		if (!isVisible && kc != Keycodes.VK_E) {
+		if (!isVisible && kc != Keycodes.E) {
 			return "";
 		}
-		else if (kc == Keycodes.VK_Z) {
+		else if (kc == Keycodes.Z) {
 			zoomLevel.increment();
 		}
-		else if (kc == Keycodes.VK_A) {
+		else if (kc == Keycodes.A) {
 			zoomLevel.decrement();
 		}
 		else if (event.getAction() != KeyEvent.RELEASE) { //the keys above react to any event, below only to RELEASE
 			return "";
 		}
-		else if (kc == Keycodes.VK_X) {
+		else if (kc == Keycodes.X) {
 			showPages = !showPages;
 		}
-		else if (kc == Keycodes.VK_E) {
+		else if (kc == Keycodes.E) {
 			toggleVisibility();
 		}
-		else if (kc == Keycodes.VK_C) {
+		else if (kc == Keycodes.C) {
 			palette.toggleVisibility();
 		}
-		else if (kc == Keycodes.VK_V) {
+		else if (kc == Keycodes.V) {
 			selectedLayer.toggleVisibility();
 			selectedPage.setLayerVisibility(pixelLayers.indexOf(selectedLayer), selectedLayer.isVisible);
 		}
-		else if (kc == Keycodes.VK_UP) {
+		else if (kc == Keycodes.UP) {
 			int selLayer = pixelLayers.indexOf(selectedLayer);
 			int selPage = editablePages.indexOf(selectedPage);
 			if (showPages) {
@@ -2113,7 +2148,7 @@ public class AlbumEditor extends DraggableWindow {
 				if (selLayer > 0) useLayer(selLayer - 1);
 			}
 		}
-		else if (kc == Keycodes.VK_DOWN) {
+		else if (kc == Keycodes.DOWN) {
 			int selLayer = pixelLayers.indexOf(selectedLayer);
 			int selPage = editablePages.indexOf(selectedPage);
 			if (showPages) {
@@ -2131,16 +2166,16 @@ public class AlbumEditor extends DraggableWindow {
 				if (selLayer < pixelLayers.size() - 1) useLayer(selLayer + 1);
 			}
 		}
-		else if (kc == Keycodes.VK_O && event.isControlDown()) {
+		else if (kc == Keycodes.O && event.isControlDown()) {
 			selectInput("Open Album .alb", "openFile", null, this);
 		}
-		else if (kc == Keycodes.VK_S && event.isControlDown()) {
+		else if (kc == Keycodes.S && event.isControlDown()) {
 			selectOutput("Save Album .alb", "saveFile", null, this);
 		}
 		else {
 			return "";
 		}
-		return getName();
+		return HELLO;
 	}// end keyboard() and big methods ========================================================================================================================
 	// ========================================================================================================================================================
 
@@ -2372,10 +2407,6 @@ public class AlbumEditor extends DraggableWindow {
 		fileLines.add("}"); //final closing bracket
 		saveStrings(file.getAbsolutePath(), fileLines.toArray(new String[0]));
 		setWindowTitle(file.getName());
-	}
-
-	String getName() {
-		return "AlbumEditor";
 	}
 
 	private class PixelLayer {

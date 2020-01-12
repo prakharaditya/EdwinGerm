@@ -46,8 +46,4 @@ class PixelGlitcher implements Kid {
 	String keyboard(KeyEvent event) {
 		return child.keyboard(event);
 	}
-
-	String getName() {
-		return "PixelGlitcher " + child.getName();
-	}
 }

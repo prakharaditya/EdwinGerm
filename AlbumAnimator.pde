@@ -32,16 +32,16 @@ class AlbumAnimator implements Kid {
 			return "";
 		}
 		int kc = event.getKeyCode();
-		if (kc == Keycodes.VK_S) {
+		if (kc == Keycodes.S) {
 			offset.x += 1;
 		}
-		else if (kc == Keycodes.VK_X) {
+		else if (kc == Keycodes.X) {
 			offset.x += album.scale;
 		}
-		else if (kc == Keycodes.VK_A) {
+		else if (kc == Keycodes.A) {
 			offset.y += 1;
 		}
-		else if (kc == Keycodes.VK_Z) {
+		else if (kc == Keycodes.Z) {
 			offset.y += album.scale;
 		}
 		return "";
