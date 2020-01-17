@@ -28,7 +28,7 @@ public class LightLattice extends DraggableWindow {
 	ModeMorph modeMorph;
 	int editMode;
 	//Album and pages for edit modes
-	final String BUTTON_FILENAME = "polywireButtons.alb",
+	final String BUTTON_FILENAME = "lightLatticeButtons.alb",
 	BUTTON_FIGURE = "modeFigure",
 	BUTTON_FIGURE_CHECKED = "modeFigureChecked",
 	BUTTON_PATH = "modePath",
@@ -243,7 +243,7 @@ public class LightLattice extends DraggableWindow {
 		JSONObject json = loadJSONObject(openFilepath);
 		openFilepath = null;
 		offset.set(json.getFloat(OFFSET_X), json.getFloat(OFFSET_Y));
-		palette.resetColors(json.getJSONArray(EdFiles.COLOR_PALETTE).getIntArray());
+		palette.resetColors(json);
 
 		//anchors
 		allDots.clear();
@@ -570,7 +570,7 @@ public class LightLattice extends DraggableWindow {
 		LatticePulse() {
 			instructions = new ArrayList<HashMap<Integer, Integer>>();
 			instructions.add(new HashMap<Integer, Integer>());
-			delay = new BoundedInt(0, 50, 5);
+			delay = new BoundedInt(0, 50, 2);
 			name = "";
 		}
 

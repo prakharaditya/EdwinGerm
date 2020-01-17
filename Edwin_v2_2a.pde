@@ -619,6 +619,7 @@ final String TAB = "\t",
 	//replacements for getName();
 	HELLO = "HELLO",
 	HI = "HI",
+	YO = "YO",
 	YUP = "YUP",
 	YOU_BETCHA = "YOU BETCHA";
 
@@ -630,11 +631,11 @@ static class EdColors {
 	UI_NORMAL = #8B956D, 
 	UI_DARK = #4D533C,
 	UI_DARKEST = #1F1F1F,
-	UI_EMPHASIS = #73342E,
+	UI_EMPHASIS = #6E3232, //#73342E,
 	ROW_EVEN = #080808,
 	ROW_ODD = #303030,
 	//https://lospec.com/palette-list/15p-dx
-	DX_RED = #6e3232,
+	DX_RED = #6E3232,
 	DX_ORANGE = #BB5735,
 	DX_YELLOW_ORANGE = #DF9245,
 	DX_YELLOW = #ECD274,
@@ -1249,7 +1250,7 @@ public class PalettePicker extends DraggableWindow {
 	String openFilepath;
 	final int SIDE = 24, COLUMN_COUNT = 5;
 
-	PalettePicker() { this(new int[] { #FFFFFF, #000000 }); }
+	PalettePicker() { this(EdColors.dxPalette()); }
 	PalettePicker(int[] paletteColors) { this(paletteColors, "Color Palette", true); }
 	PalettePicker(int[] paletteColors, String title) { this(paletteColors, title, true); }
 	PalettePicker(int[] paletteColors, String title, boolean visible) {
@@ -1276,6 +1277,7 @@ public class PalettePicker extends DraggableWindow {
 	void colorEdited(int paletteIndex) { }
 	/***************************************/
 
+	void resetColors(JSONObject json) { resetColors(json.getJSONArray(EdFiles.COLOR_PALETTE).getIntArray()); }
 	void resetColors(int[] paletteColors) {
 		colors.clear();
 		selectedColor.reset(0, -1);
@@ -1382,7 +1384,7 @@ public class PalettePicker extends DraggableWindow {
 		openFilepath = file.getAbsolutePath();
 		try {
 			JSONObject json = loadJSONObject(openFilepath);
-			resetColors(json.getJSONArray(EdFiles.COLOR_PALETTE).getIntArray());
+			resetColors(json);
 		}
 		catch (Exception e) {
 			JOptionPane.showMessageDialog(null, "Palette could not be read", "Hey", JOptionPane.ERROR_MESSAGE);
@@ -1716,7 +1718,7 @@ public class AlbumEditor extends DraggableWindow {
 				if (!thisLayer.dots.get(j)) continue; //if pixel isn't set, skip loop iteration
 				
 				//calculate coords based on the dot's index
-				pixelY = round(j / spriteW);
+				pixelY = floor(j / spriteW);
 				pixelX = j - (pixelY * spriteW);
 
 				//draw pixel in top left preview
@@ -2295,9 +2297,14 @@ public class AlbumEditor extends DraggableWindow {
 			float segmentIncrement = 1;
 			float lineDist = mouseInitialTranslated.distance(mouseTranslated);
 			XY newPoint = new XY();
-			pixelLayer.pixelRectangle(brushVal, mouseTranslated.x, mouseTranslated.y, brushSize.value, brushSize.value);
+			pixelLayer.pixelRectangle(brushVal, 
+				mouseTranslated.x, 
+				mouseTranslated.y, 
+				brushSize.value, 
+				brushSize.value);
 			for (float segDist = 0; segDist <= lineDist; segDist += segmentIncrement) {
-				newPoint.set(mouseInitialTranslated.x - (segDist * (mouseInitialTranslated.x - mouseTranslated.x)) / lineDist, 
+				newPoint.set(
+					mouseInitialTranslated.x - (segDist * (mouseInitialTranslated.x - mouseTranslated.x)) / lineDist, 
 					mouseInitialTranslated.y - (segDist * (mouseInitialTranslated.y - mouseTranslated.y)) / lineDist);
 				pixelLayer.pixelRectangle(brushVal, newPoint.x, newPoint.y, brushSize.value - 1, brushSize.value - 1);
 			}
@@ -2318,7 +2325,7 @@ public class AlbumEditor extends DraggableWindow {
 		openFilepath = null;
 		spriteW = json.getInt(EdFiles.PX_WIDTH);
 		spriteH = json.getInt(EdFiles.PX_HEIGHT);
-		palette.resetColors(json.getJSONArray(EdFiles.COLOR_PALETTE).getIntArray());
+		palette.resetColors(json);
 		pixelLayers.clear();
 		editablePages.clear();
 

@@ -382,7 +382,7 @@ public class LaserboltPositioner implements Kid {
 		JSONObject json = loadJSONObject(openFilepath);
 		openFilepath = null;
 		lasers.clear();
-		palette.resetColors(json.getJSONArray(EdFiles.COLOR_PALETTE).getIntArray());
+		palette.resetColors(json);
 		JSONArray jsonLasers = json.getJSONArray(LASERBOLT_LIST);
 		for (int i = 0; i < jsonLasers.size(); i++) {
 			JSONObject jsonLaser = jsonLasers.getJSONObject(i);
