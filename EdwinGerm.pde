@@ -1,32 +1,35 @@
 Edwin edwin;
 
 void setup() {
-	//fullScreen();
-	size(1200, 1000);
-	edwin = new Edwin();
-	//edwin.useSmooth = false;
-	//edwin.addKid(new StarBackdrop());
-	edwin.addKid(new PixelStarBackdrop(500));
-	//edwin.addKid(new MinesweeperGame());
-	
-	//edwin.addKid(new PortalPiece());
-	//edwin.addKid(new ReferenceImagePositioner("starwebs\\statue2.png"));
-	//edwin.addKid(new StarWebPositioner());
+    //fullScreen();
+    // size(1900, 1100);
+    size(800, 800);
+    edwin = new Edwin();
+    
+    // edwin.addKid(new StarBackdrop());
+    edwin.addKid(new PixelStarBackdrop(200));
+    edwin.addKid(new Ricochet());
+    
+    // edwin.addKid(new PalettePicker(EdColors.dxPalette(), "Set window color") {
+    //     public void colorSelected(int paletteIndex) { 
+    //         edwin.bgdColor = this.colors.get(paletteIndex);
+    //     }
+    // });
+    
+    // edwin.addKid(new MinesweeperGame());
+    // edwin.addKid(new ReferenceImagePositioner());
+    // edwin.addKid(new StarWebPositioner());
+    // edwin.addKid(new LaserboltPositioner()); 
+    // edwin.addKid(new LightLattice());
+    // edwin.addKid(new AlbumAnimator());
 
+    // edwin.addKid(new PixelGlitcher(new LightLattice()));
+    // edwin.addKid(new PixelGlitcher(new StarWebPositioner()));
 
-	edwin.addKid(new PixelGlitcher(new LightLattice()));
-	//edwin.addKid(new LaserboltPositioner("_mush.lzr")); 
-	//edwin.addKid(new LaserboltPositioner()); 
-
-	//edwin.addKid(new PixelGlitcher(new LaserboltPositioner("_mush.lzr", true)));
-	edwin.addKid(new PixelGlitcher(new StarWebPositioner()));
-
-	//edwin.addKid(new AlbumAnimator(2));
-
-	edwin.addKid(new AlbumEditor(false));
+    edwin.addKid(new AlbumEditor(false)); //hit E to toggle visibility (after clicking into the window)
 }
 
 void draw() {
-	edwin.think();
-	image(edwin.canvas, 0, 0);
+    edwin.think();
+    image(edwin.canvas, 0, 0);
 }

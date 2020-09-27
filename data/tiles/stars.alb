@@ -1,117 +1,123 @@
 {
 "width":9,
 "height":9,
-"colorPalette":[-3689835, -7900837, -12175567, -14674168, -16449023, -132623, -8266803, -15228503, -16488300, -15254713, -1256844, -2125243, -4499659, -9555406, -9608092],
+"colorPalette":[-3689835, -7900837, -12175567, -14674168, -16317437, -1256844, -2125243, -4499659, -9555406, -11185318, -132623, -8266803, -15228503, -16488300, -15254713, 16711935, -8148970, -14192092],
 "backgroundColor":null,
 
 "pixelLayers":[{
-	"paletteIndex":9,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":14,
 	"dots":[
 		20, 23, 30, 31, 39, 40, 47, 50, 
 	]
 },{
-	"paletteIndex":8,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":13,
 	"dots":[
 		30, 31, 39, 40, 
 	]
 },{
-	"paletteIndex":9,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":14,
 	"dots":[
 		31, 39, 40, 41, 49, 
 	]
 },{
-	"paletteIndex":8,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":13,
 	"dots":[
 		31, 39, 40, 41, 49, 
 	]
 },{
-	"paletteIndex":8,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":13,
 	"dots":[
 		40, 
 	]
 },{
-	"paletteIndex":9,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":14,
 	"dots":[
 		22, 31, 38, 39, 40, 41, 42, 49, 58, 
 	]
 },{
-	"paletteIndex":8,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":13,
 	"dots":[
 		31, 39, 40, 41, 49, 
 	]
 },{
-	"paletteIndex":8,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":13,
 	"dots":[
 		22, 38, 41, 42, 58, 
 	]
 },{
-	"paletteIndex":9,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":14,
 	"dots":[
 		21, 22, 29, 30, 31, 32, 38, 39, 40, 41, 48, 49, 
 	]
 },{
-	"paletteIndex":8,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":13,
 	"dots":[
 		21, 22, 29, 30, 31, 32, 38, 39, 40, 41, 48, 49, 
 	]
 },{
-	"paletteIndex":7,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":11,
 	"dots":[
 		30, 31, 39, 40, 
 	]
 },{
-	"paletteIndex":9,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":14,
 	"dots":[
 		4, 13, 21, 22, 23, 29, 30, 31, 32, 33, 36, 37, 38, 39, 40, 41, 42, 43, 44, 47, 48, 49, 50, 51, 57, 
 		58, 59, 67, 76, 
 	]
 },{
-	"paletteIndex":8,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":13,
 	"dots":[
 		31, 39, 40, 41, 49, 
 	]
 },{
-	"paletteIndex":7,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":11,
 	"dots":[
 		40, 
 	]
 },{
-	"paletteIndex":9,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":14,
 	"dots":[
 		30, 31, 39, 40, 
 	]
 },{
-	"paletteIndex":8,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":13,
 	"dots":[
 		30, 31, 39, 40, 
 	]
 },{
-	"paletteIndex":9,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":14,
 	"dots":[
 		40, 
 	]
 },{
-	"paletteIndex":8,
 	"pixelLayerName":"newlayer",
+	"paletteIndex":13,
 	"dots":[
 		40, 
+	]
+},{
+	"pixelLayerName":"newlayer",
+	"paletteIndex":4,
+	"dots":[
+		
 	]
 }],
 
@@ -138,7 +144,7 @@
 	"layerNumbers":[8, 10],
 },{
 	"pageName":"bright circ",
-	"layerNumbers":[8, 9, 10],
+	"layerNumbers":[8, 9, 10, 18],
 },{
 	"pageName":"sm dim cross",
 	"layerNumbers":[2, 4],
